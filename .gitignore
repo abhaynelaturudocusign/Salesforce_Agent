@@ -1,0 +1,13 @@
+# Python virtual environment
+venv/
+.venv/
+
+# Environment variables
+.env
+
+# Private keys
+docusign_private.key
+
+# IDE / System files
+__pycache__/
+.replit
