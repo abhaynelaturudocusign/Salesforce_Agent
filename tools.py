@@ -172,6 +172,8 @@ def update_opportunity_stage(tool_input: str) -> str:
         return f"Salesforce API Error: {e}"
 
 
+# tools.py (Final Version of the function)
+
 def download_and_attach_document_to_salesforce(tool_input: str) -> str:
     """
     Downloads a signed document from a completed DocuSign envelope and attaches it directly
@@ -190,32 +192,19 @@ def download_and_attach_document_to_salesforce(tool_input: str) -> str:
     except (json.JSONDecodeError, KeyError) as e:
         return f"Error: Invalid input format. Details: {e}"
 
-    temp_file_path = None
     try:
-        # Step 1: Download the document from DocuSign
+        # Step 1: Get the document content DIRECTLY from DocuSign as bytes
         envelopes_api = EnvelopesApi(api_client)
-        temp_file_path_raw = envelopes_api.get_document(
+        # This API call returns the file content as a bytes object
+        file_content_bytes = envelopes_api.get_document(
             account_id=os.getenv("DOCUSIGN_API_ACCOUNT_ID"),
             envelope_id=envelope_id,
             document_id="combined"
         )
-        
-        print(f"DEBUG: Type of temp_file_path_raw from SDK is {type(temp_file_path_raw)}")
+        print(f"--- Document content received from DocuSign (type: {type(file_content_bytes)}) ---")
 
-        temp_file_path = temp_file_path_raw.replace('\x00', '')
-        
-        print(f"DEBUG: Type of temp_file_path after cleaning is {type(temp_file_path)}")
-        print(f"DEBUG: Value of temp_file_path is '{temp_file_path}'")
-
-        # Step 2: Read the file and attach it to Salesforce
-        with open(temp_file_path, 'rb') as f:
-            file_content = f.read()
-            
-            print(f"DEBUG: Type of file_content after reading file is {type(file_content)}")
-            
-            file_content_base64 = base64.b64encode(file_content).decode('utf-8')
-            
-            print(f"DEBUG: Type of file_content_base64 after encoding is {type(file_content_base64)}")
+        # Step 2: Base64 encode the bytes and attach to Salesforce
+        file_content_base64 = base64.b64encode(file_content_bytes).decode('utf-8')
 
         content_version_data = {
             'Title': file_name,
@@ -233,10 +222,4 @@ def download_and_attach_document_to_salesforce(tool_input: str) -> str:
             return f"Salesforce API Error while attaching file: {errors}"
             
     except Exception as e:
-        # We add the type of the exception to see exactly what's failing
         return f"An error occurred during the download/attach process: {type(e).__name__} - {e}"
-    finally:
-        # Step 3: Clean up the temporary file
-        if temp_file_path and os.path.exists(temp_file_path):
-            os.remove(temp_file_path)
-            print(f"--- Cleaned up temporary file: {temp_file_path} ---")
