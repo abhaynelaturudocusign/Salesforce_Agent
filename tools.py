@@ -6,7 +6,7 @@ import json
 import time
 import requests  # <--- IMPORT REQUESTS
 from dotenv import load_dotenv
-from docusign_esign import ApiClient, EnvelopesApi, EnvelopeDefinition, Document, Signer, SignHere, Tabs, Recipients, TemplateRole
+from docusign_esign import ApiClient, EnvelopesApi, EnvelopeDefinition, Document, Signer, SignHere, Tabs, Recipients, TemplateRole, TextCustomField, CustomFields
 from simple_salesforce import Salesforce
 # ... other imports ...
 
@@ -55,6 +55,21 @@ except Exception as e:
 
 # --- TOOL DEFINITIONS ---
 
+# tools.py (new tool)
+
+def get_open_opportunities() -> str:
+    """Fetches all Salesforce Opportunities that are in the 'Negotiation/Review' stage and are not closed."""
+    print("--- Calling Tool: get_open_opportunities ---")
+    try:
+        query = "SELECT Id, Name, Amount, CloseDate FROM Opportunity WHERE StageName = 'Negotiation/Review' AND IsClosed = false ORDER BY Amount DESC"
+        result = sf.query(query)
+        records = result.get('records', [])
+        if not records:
+            return "No open opportunities found in the 'Negotiation/Review' stage."
+        # Convert the list of dictionaries to a JSON string for the agent
+        return json.dumps(records)
+    except Exception as e:
+        return f"Salesforce API Error: {e}"
 
 def get_opportunity_details(opportunity_id: str) -> str:
     """Fetches key details for a given Salesforce Opportunity ID..."""
@@ -94,9 +109,8 @@ def get_opportunity_details(opportunity_id: str) -> str:
 
 def create_and_send_docusign_from_template(tool_input: str) -> str:
     """
-    Creates and sends a DocuSign envelope from a specific server template. 
-    The input to this tool should be a JSON string with the keys 'recipient_name', 
-    'recipient_email', 'template_id', and 'signer_role_name'.
+    Creates and sends a DocuSign envelope from a template. The input must be a JSON string with 
+    'recipient_name', 'recipient_email', 'template_id', 'signer_role_name', and 'opportunity_id'.
     """
     print(
         f"--- Calling Tool: create_and_send_docusign_from_template with input {tool_input} ---"
@@ -111,11 +125,22 @@ def create_and_send_docusign_from_template(tool_input: str) -> str:
         recipient_email = args['recipient_email']
         template_id = args['template_id']
         signer_role_name = args['signer_role_name']
+        opportunity_id = args['opportunity_id']
     except (json.JSONDecodeError, KeyError) as e:
         return f"Error: Invalid input format. Please provide a valid JSON string with all required keys. Details: {e}"
 
+    # --- NEW LOGIC: Define the custom field ---
+    opp_id_field = TextCustomField(
+        name='opportunity_id',  # The name of the field
+        required='true',
+        show='false',          # Hide it from the signer
+        value=opportunity_id   # The actual SFDC Opportunity ID
+    )
+    custom_fields = CustomFields(text_custom_fields=[opp_id_field])
+    # --- END OF NEW LOGIC ---
+
     envelope_definition = EnvelopeDefinition(template_id=template_id,
-                                             status="sent")
+                                             status="sent",custom_fields=custom_fields)
     signer = TemplateRole(email=recipient_email,
                           name=recipient_name,
                           role_name=signer_role_name)
