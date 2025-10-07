@@ -194,12 +194,16 @@ def download_and_attach_document_to_salesforce(tool_input: str) -> str:
     try:
         # Step 1: Download the document from DocuSign
         envelopes_api = EnvelopesApi(api_client)
-        temp_file_path = envelopes_api.get_document(
+        temp_file_path_raw = envelopes_api.get_document(
             account_id=os.getenv("DOCUSIGN_API_ACCOUNT_ID"),
             envelope_id=envelope_id,
             document_id="combined" # Gets the combined PDF
         )
-        print(f"--- Document downloaded to temporary path: {temp_file_path} ---")
+
+        # Sanitize the file path string to remove any null bytes
+        temp_file_path = temp_file_path_raw.replace('\x00', '')
+
+        print(f"--- Document downloaded to sanitized temporary path: {temp_file_path} ---")
 
         # Step 2: Read the file and attach it to Salesforce
         with open(temp_file_path, 'rb') as f:
