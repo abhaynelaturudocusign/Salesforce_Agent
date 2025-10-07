@@ -24,16 +24,22 @@ def docusign_webhook():
     print(f"--- Raw webhook data received: {xml_data} ---")
 
     try:
-        # Convert the XML to a Python dictionary
+        # Convert the JSON byte string to a Python dictionary
         data = json.loads(xml_data)
-        envelope_status = data['envelopeStatus']['status']
-        envelope_id = data['envelopeId']
+        
+        # --- UPDATED LOGIC ---
+        # Access the nested data according to the correct structure
+        envelope_id = data['data']['envelopeId']
+        envelope_status = data['data']['envelopeSummary']['status']
+        # --- END OF UPDATED LOGIC ---
 
         print(f"✅ Webhook received: Envelope {envelope_id} has status '{envelope_status}'")
+        
         if envelope_status == 'completed':
             print(f"🚀 Triggering agent to finalize deal for envelope {envelope_id}...")
             thread = threading.Thread(target=finalize_deal, args=(envelope_id,))
             thread.start()
+        
     except Exception as e:
         print(f"❌ Error processing webhook: {e}")
 
