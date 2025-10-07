@@ -19,6 +19,9 @@ def docusign_webhook():
     # Get the raw XML data from the request
     xml_data = request.data
 
+    # ADD THIS LINE FOR DEBUGGING
+    print(f"--- Raw webhook data received: {xml_data} ---")
+    
     try:
         # Convert the XML to a Python dictionary
         data = xmltodict.parse(xml_data)
