@@ -58,15 +58,38 @@ except Exception as e:
 # tools.py (new tool)
 
 def get_open_opportunities() -> str:
-    """Fetches all Salesforce Opportunities that are in the 'Negotiation/Review' stage and are not closed."""
+    """
+    Fetches all Salesforce Opportunities in the 'Negotiation/Review' stage, 
+    including the primary contact's email.
+    """
     print("--- Calling Tool: get_open_opportunities ---")
     try:
-        query = "SELECT Id, Name, Amount, CloseDate FROM Opportunity WHERE StageName != 'Closed Won' AND IsClosed = false ORDER BY Amount DESC"
+        # Updated query to include a subquery for the primary contact's email
+        query = """
+            SELECT Id, Name, Amount, CloseDate, 
+                   (SELECT Contact.Email 
+                    FROM OpportunityContactRoles 
+                    WHERE IsPrimary = true LIMIT 1) 
+            FROM Opportunity 
+            WHERE StageName != 'Closed Won' AND IsClosed = false 
+            ORDER BY Amount DESC
+        """
         result = sf.query(query)
         records = result.get('records', [])
+        
         if not records:
-            return "No open opportunities found in the 'Negotiation/Review' stage."
-        # Convert the list of dictionaries to a JSON string for the agent
+            return "[]" # Return an empty JSON array string
+
+        # Process records to flatten the contact email for easier use in the template
+        for opp in records:
+            contact_roles = opp.get('OpportunityContactRoles')
+            if contact_roles and contact_roles['records']:
+                opp['PrimaryContactEmail'] = contact_roles['records'][0]['Contact']['Email']
+            else:
+                opp['PrimaryContactEmail'] = 'N/A' # Handle cases with no primary contact
+            # We can remove the nested object as it's no longer needed
+            del opp['OpportunityContactRoles']
+            
         return json.dumps(records)
     except Exception as e:
         return f"Salesforce API Error: {e}"

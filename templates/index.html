@@ -22,21 +22,30 @@
                     <th>Opportunity Name</th>
                     <th>Amount</th>
                     <th>Close Date</th>
-                </tr>
+                    <th>Primary Contact Email</th> </tr>
             </thead>
             <tbody>
                 {% for opp in opportunities %}
                 <tr>
-                    <td><input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}"></td>
+                    <td>
+                        {% if opp.PrimaryContactEmail == 'N/A' %}
+                            <span title="Update the Opportunity in Salesforce to add a primary contact.">
+                                <input type="checkbox" disabled>
+                            </span>
+                        {% else %}
+                            <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}">
+                        {% endif %}
+                        </td>
                     <td>{{ opp.Name }}</td>
                     <td>${{ opp.Amount }}</td>
                     <td>{{ opp.CloseDate }}</td>
+                    <td>{{ opp.PrimaryContactEmail }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
         <br>
-        <button type="Delegate to closer">Start Closing Selected Deals</button>
+        <button type="submit">Start Closing Selected Deals</button>
     </form>
 </body>
 </html>
