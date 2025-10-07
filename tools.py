@@ -61,7 +61,7 @@ def get_open_opportunities() -> str:
     """Fetches all Salesforce Opportunities that are in the 'Negotiation/Review' stage and are not closed."""
     print("--- Calling Tool: get_open_opportunities ---")
     try:
-        query = "SELECT Id, Name, Amount, CloseDate FROM Opportunity WHERE StageName = 'Negotiation/Review' AND IsClosed = false ORDER BY Amount DESC"
+        query = "SELECT Id, Name, Amount, CloseDate FROM Opportunity WHERE StageName != 'Closed Won' AND IsClosed = false ORDER BY Amount DESC"
         result = sf.query(query)
         records = result.get('records', [])
         if not records:
