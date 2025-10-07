@@ -1,6 +1,7 @@
 # tools.py
 
 import os
+import base64
 import json
 import time
 import requests  # <--- IMPORT REQUESTS
@@ -171,56 +172,37 @@ def update_opportunity_stage(tool_input: str) -> str:
         return f"Salesforce API Error: {e}"
 
 
-def download_docusign_document(tool_input: str) -> str:
+def download_and_attach_document_to_salesforce(tool_input: str) -> str:
     """
-    Downloads the combined PDF of a completed DocuSign envelope and saves it as a temporary file.
-    The input should be a JSON string with the key 'envelope_id'.
-    Returns the local file path of the downloaded PDF.
+    Downloads a signed document from a completed DocuSign envelope and attaches it directly
+    to a Salesforce Opportunity record. The input must be a JSON string with the keys
+    'envelope_id', 'record_id' (the Opportunity ID), and 'file_name'.
     """
-    print(
-        f"--- Calling Tool: download_docusign_document with input {tool_input} ---"
-    )
+    print(f"--- Calling Tool: download_and_attach_document_to_salesforce with input {tool_input} ---")
     if not api_client:
         return "Error: DocuSign API client is not authenticated."
 
     try:
         args = json.loads(tool_input)
         envelope_id = args['envelope_id']
-    except (json.JSONDecodeError, KeyError) as e:
-        return f"Error: Invalid input format. Please provide a valid JSON string with 'envelope_id'. Details: {e}"
-
-    try:
-        envelopes_api = EnvelopesApi(api_client)
-        # "combined" is a special document_id to get the combined PDF of all documents
-        temp_file_path = envelopes_api.get_document(
-            account_id=os.getenv("DOCUSIGN_API_ACCOUNT_ID"),
-            envelope_id=envelope_id,
-            document_id="combined")
-        return f"Successfully downloaded document to temporary path: {temp_file_path}"
-    except Exception as e:
-        return f"DocuSign API Error while downloading: {e}"
-
-
-def attach_file_to_salesforce(tool_input: str) -> str:
-    """
-    Attaches a file to a Salesforce Opportunity record. The input should be a JSON string
-    with the keys 'record_id' (the Opportunity ID), 'file_path' (the local path to the file),
-    and 'file_name' (the desired name for the file in Salesforce).
-    """
-    print(
-        f"--- Calling Tool: attach_file_to_salesforce with input {tool_input} ---"
-    )
-
-    try:
-        args = json.loads(tool_input)
         record_id = args['record_id']
-        file_path = args['file_path']
         file_name = args['file_name']
     except (json.JSONDecodeError, KeyError) as e:
         return f"Error: Invalid input format. Please provide a valid JSON string with all required keys. Details: {e}"
 
+    temp_file_path = None
     try:
-        with open(file_path, 'rb') as f:
+        # Step 1: Download the document from DocuSign
+        envelopes_api = EnvelopesApi(api_client)
+        temp_file_path = envelopes_api.get_document(
+            account_id=os.getenv("DOCUSIGN_API_ACCOUNT_ID"),
+            envelope_id=envelope_id,
+            document_id="combined" # Gets the combined PDF
+        )
+        print(f"--- Document downloaded to temporary path: {temp_file_path} ---")
+
+        # Step 2: Read the file and attach it to Salesforce
+        with open(temp_file_path, 'rb') as f:
             file_content_base64 = base64.b64encode(f.read()).decode('utf-8')
 
         content_version_data = {
@@ -229,19 +211,19 @@ def attach_file_to_salesforce(tool_input: str) -> str:
             'VersionData': file_content_base64,
             'FirstPublishLocationId': record_id
         }
-
+        
         result = sf.ContentVersion.create(content_version_data)
-
+        
         if result.get('success'):
-            return f"Successfully attached file '{file_name}' to Salesforce record {record_id}."
+            return f"Successfully downloaded and attached file '{file_name}' to Salesforce record {record_id}."
         else:
             errors = result.get('errors', 'Unknown error')
             return f"Salesforce API Error while attaching file: {errors}"
-
+            
     except Exception as e:
-        return f"An error occurred while attaching the file: {e}"
+        return f"An error occurred during the download/attach process: {e}"
     finally:
-        # IMPORTANT: Clean up the temporary file downloaded from DocuSign
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"--- Cleaned up temporary file: {file_path} ---")
+        # Step 3: Clean up the temporary file
+        if temp_file_path and os.path.exists(temp_file_path):
+            os.remove(temp_file_path)
+            print(f"--- Cleaned up temporary file: {temp_file_path} ---")

@@ -14,22 +14,33 @@ llm = AzureChatOpenAI(
     temperature=0)
 
 tools = [
-    Tool(name="Get Opportunity Details",
-         func=get_opportunity_details,
-         description="..."),
-    Tool(name="Create and Send DocuSign from Template",
-         func=create_and_send_docusign_from_template,
-         description="..."),
-    Tool(name="Download DocuSign Document",
-         func=download_docusign_document,
-         description="..."),
-    Tool(name="Attach File to Salesforce",
-         func=attach_file_to_salesforce,
-         description="..."),
-    Tool(name="Update Opportunity Stage",
-         func=update_opportunity_stage,
-         description="...")
-]  # Note: I've abbreviated the descriptions for brevity. Use your full descriptions.
+    Tool(
+        name="Get Opportunity Details", 
+        func=get_opportunity_details, 
+        description="Use this to fetch key details for a Salesforce Opportunity. The input should be a single Salesforce Opportunity ID."
+    ),
+    Tool(
+        name="Create and Send DocuSign from Template", 
+        func=create_and_send_docusign_from_template, 
+        description=("Use this to create and send a DocuSign envelope from a template. The input MUST be a valid JSON string with the following four keys: 'recipient_name', 'recipient_email', 'template_id', and 'signer_role_name'.")
+    ),
+    Tool(
+        name="Get DocuSign Envelope Status", 
+        func=get_docusign_envelope_status, 
+        description="Use this to check the current status of a DocuSign envelope. The input should be a single DocuSign envelope_id."
+    ),
+    # --- NEW COMBINED TOOL ---
+    Tool(
+        name="Download and Attach DocuSign Document to Salesforce",
+        func=download_and_attach_document_to_salesforce,
+        description="Use this to download a signed document from DocuSign and attach it to a Salesforce Opportunity. The input must be a JSON string with 'envelope_id', 'record_id', and 'file_name'."
+    ),
+    Tool(
+        name="Update Opportunity Stage", 
+        func=update_opportunity_stage, 
+        description="Use this to update the stage of a Salesforce Opportunity. The input must be a JSON string with 'opportunity_id' and 'new_stage'."
+    )
+] # Note: I've abbreviated the descriptions for brevity. Use your full descriptions.
 
 template = """
 Answer the following questions as best you can. You have access to the following tools:
@@ -76,18 +87,15 @@ def start_deal_process(opportunity_id, template_id, signer_role):
 def finalize_deal(envelope_id):
     """Called by the webhook listener to finalize the deal."""
     print(f"🚀 Finalizing deal for completed envelope {envelope_id}...")
+    
+    opportunity_id = "006dM00000FSckrQAD" # The Opportunity ID you've been using
 
-    # We need to find the related Opportunity ID from the envelope.
-    # For this example, we'll assume a fixed one, but in a real system,
-    # you would query Salesforce using the envelope_id or a custom field.
-    opportunity_id = "006dM00000FSckrQAD"  # The Opportunity ID you've been using
-
+    # --- UPDATED GOAL ---
     goal = f"""
     The document with DocuSign Envelope ID '{envelope_id}' has been signed.
     Finalize the deal for Salesforce Opportunity ID '{opportunity_id}'.
-    1. Download the signed document from DocuSign.
-    2. Attach the downloaded document to the Salesforce Opportunity. Name the file 'Signed_Contract.pdf'.
-    3. Update the Opportunity's stage to 'Closed Won'.
+    1. Download the signed document from DocuSign and attach it to the Salesforce Opportunity. Name the file 'Signed_Contract.pdf'.
+    2. Update the Opportunity's stage to 'Closed Won'.
     """
     result = agent_executor.invoke({"input": goal})
     print(f"✅ Finalization complete: {result['output']}")
