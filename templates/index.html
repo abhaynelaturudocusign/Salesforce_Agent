@@ -21,8 +21,9 @@
                     <th>Select</th>
                     <th>Opportunity Name</th>
                     <th>Amount</th>
+                    <th>Primary Contact Name</th> <th>Primary Contact Email</th>
                     <th>Close Date</th>
-                    <th>Primary Contact Email</th> </tr>
+                </tr>
             </thead>
             <tbody>
                 {% for opp in opportunities %}
@@ -35,11 +36,11 @@
                         {% else %}
                             <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}">
                         {% endif %}
-                        </td>
+                    </td>
                     <td>{{ opp.Name }}</td>
                     <td>${{ opp.Amount }}</td>
+                    <td>{{ opp.PrimaryContactName }}</td> <td>{{ opp.PrimaryContactEmail }}</td>
                     <td>{{ opp.CloseDate }}</td>
-                    <td>{{ opp.PrimaryContactEmail }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

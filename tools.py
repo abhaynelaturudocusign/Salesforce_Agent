@@ -60,34 +60,37 @@ except Exception as e:
 def get_open_opportunities() -> str:
     """
     Fetches all Salesforce Opportunities in the 'Negotiation/Review' stage, 
-    including the primary contact's email.
+    including the primary contact's name and email.
     """
     print("--- Calling Tool: get_open_opportunities ---")
     try:
-        # Updated query to include a subquery for the primary contact's email
+        # Updated query to include Contact.Name
         query = """
             SELECT Id, Name, Amount, CloseDate, 
-                   (SELECT Contact.Email 
+                   (SELECT Contact.Name, Contact.Email 
                     FROM OpportunityContactRoles 
                     WHERE IsPrimary = true LIMIT 1) 
             FROM Opportunity 
-            WHERE StageName != 'Closed Won' AND IsClosed = false 
+            WHERE StageName = 'Negotiation/Review' AND IsClosed = false 
             ORDER BY Amount DESC
         """
         result = sf.query(query)
         records = result.get('records', [])
         
         if not records:
-            return "[]" # Return an empty JSON array string
+            return "[]"
 
-        # Process records to flatten the contact email for easier use in the template
+        # Process records to flatten the contact info for easier use
         for opp in records:
             contact_roles = opp.get('OpportunityContactRoles')
             if contact_roles and contact_roles['records']:
-                opp['PrimaryContactEmail'] = contact_roles['records'][0]['Contact']['Email']
+                contact = contact_roles['records'][0]['Contact']
+                opp['PrimaryContactName'] = contact['Name']
+                opp['PrimaryContactEmail'] = contact['Email']
             else:
-                opp['PrimaryContactEmail'] = 'N/A' # Handle cases with no primary contact
-            # We can remove the nested object as it's no longer needed
+                opp['PrimaryContactName'] = 'N/A' # Handle cases with no primary contact
+                opp['PrimaryContactEmail'] = 'N/A'
+            
             del opp['OpportunityContactRoles']
             
         return json.dumps(records)
