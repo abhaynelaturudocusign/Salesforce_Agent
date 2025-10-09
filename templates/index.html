@@ -12,6 +12,7 @@
         .edit-btn { background-color: #555; }
         .email-input { padding: 4px; width: 95%; }
         .edit-mode { display: none; }
+        /* --- All other styles (spinner, toast) remain the same --- */
         #spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
         .spinner { border: 8px solid #f3f3f3; border-top: 8px solid #0070d2; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -80,6 +81,7 @@
         const spinner = document.getElementById('spinner-overlay');
         const toast = document.getElementById('toast');
 
+        // This is your existing script for the spinner/toast
         form.addEventListener('submit', function(event) {
             event.preventDefault();
             spinner.style.display = 'flex';
@@ -102,6 +104,7 @@
             });
         });
 
+        // --- These are the new functions for inline editing ---
         function editEmail(editButton) {
             const row = editButton.closest('tr');
             row.querySelector('.view-mode').style.display = 'none';
@@ -114,6 +117,7 @@
             const emailInput = row.querySelector('.email-input');
             const newEmail = emailInput.value;
 
+            // Send data to the new backend endpoint
             fetch('/update-contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -122,7 +126,9 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
+                    // Update the text on the screen
                     row.querySelector('.email-text').textContent = newEmail;
+                    // Switch back to "view mode"
                     row.querySelector('.view-mode').style.display = 'block';
                     row.querySelector('.edit-mode').style.display = 'none';
                 } else {
