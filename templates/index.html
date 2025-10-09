@@ -81,6 +81,7 @@
         const spinner = document.getElementById('spinner-overlay');
         const toast = document.getElementById('toast');
 
+        // Logic for the main "Start Closing" button
         form.addEventListener('submit', function(event) {
             event.preventDefault();
             spinner.style.display = 'flex';
@@ -93,7 +94,6 @@
             .then(response => response.json())
             .then(data => {
                 if (data.task_id) {
-                    // If we got a task_id, start polling for the status
                     pollStatus(data.task_id);
                 } else {
                     spinner.style.display = 'none';
@@ -105,19 +105,15 @@
             });
         });
 
+        // Logic for the polling status check
         function pollStatus(taskId) {
             const intervalId = setInterval(() => {
                 fetch(`/task-status/${taskId}`)
                     .then(response => response.json())
                     .then(data => {
-                        // Update a progress indicator here if you want
                         console.log(`Completed: ${data.completed}/${data.total}`);
-
                         if (data.status === 'completed') {
-                            // All jobs are done! Stop polling.
                             clearInterval(intervalId);
-                            
-                            // Hide spinner and show the final toast message
                             spinner.style.display = 'none';
                             toast.className = 'show';
                             setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
@@ -125,15 +121,45 @@
                     })
                     .catch(error => {
                         console.error('Polling Error:', error);
-                        clearInterval(intervalId); // Stop on error
+                        clearInterval(intervalId);
                         spinner.style.display = 'none';
                     });
-            }, 3000); // Check status every 3 seconds
+            }, 3000);
         }
 
-        // Your editEmail and saveEmail functions remain the same
-        function editEmail(editButton) { /* ... */ }
-        function saveEmail(saveButton) { /* ... */ }
+        // --- Logic for the inline "Edit" and "Save" buttons ---
+        function editEmail(editButton) {
+            const row = editButton.closest('tr');
+            row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
+            row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'block');
+        }
+
+        function saveEmail(saveButton) {
+            const row = saveButton.closest('tr');
+            const contactId = row.dataset.contactId;
+            const emailInput = row.querySelector('.email-input');
+            const newEmail = emailInput.value;
+
+            fetch('/update-contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contact_id: contactId, new_email: newEmail })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    row.querySelector('.email-text').textContent = newEmail;
+                    row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
+                    row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
+                } else {
+                    alert('Error saving email: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please check the console.');
+            });
+        }
     </script>
 </body>
 </html>
