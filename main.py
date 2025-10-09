@@ -53,8 +53,11 @@ def start_deal_process(opportunity_id, template_id, signer_role_name):
     print(f"🚀 Starting the deal process for Opportunity {opportunity_id}...")
     goal = f"""
     First, get the details for Salesforce Opportunity ID '{opportunity_id}' to find the primary contact.
-    Then, send the contract to them using DocuSign template ID '{template_id}' and signer role '{signer_role_name}'.
-    The opportunity ID '{opportunity_id}' must be passed as a custom field.
+    Then, send the contract to them using the "Create and Send DocuSign from Template" tool.
+    Ensure you provide all required parameters to the tool, including:
+    - a 'template_id' of '{template_id}'
+    - a 'signer_role_name' of '{signer_role_name}'
+    - and the 'opportunity_id' which is '{opportunity_id}'.
     Report the outcome and the new Envelope ID.
     """
     result = agent_executor.invoke({"input": goal})
