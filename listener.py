@@ -16,13 +16,27 @@ app = Flask(__name__)
 @app.route('/', methods=['GET'])
 def index():
     """Renders the main UI page with a list of opportunities."""
-    # The tool returns a JSON string, so we parse it back to a list
-    opportunities_json = get_open_opportunities()
+    from tools import get_open_opportunities
+    print("--- [UI] Page requested. Calling get_open_opportunities tool. ---")
+
+    opportunities = [] # Default to an empty list
     try:
-        opportunities = json.loads(opportunities_json)
-    except (json.JSONDecodeError, TypeError):
-        opportunities = [] # Handle cases where no opportunities are found
-    
+        # 1. Get the raw JSON string from the tool
+        opportunities_json = get_open_opportunities()
+        print(f"--- [UI] Raw JSON received from tool: {opportunities_json} ---")
+
+        # 2. Check if the received data is a valid-looking JSON array (after stripping whitespace)
+        if opportunities_json and opportunities_json.strip().startswith('['):
+            # 3. Parse the JSON into a Python list
+            opportunities = json.loads(opportunities_json)
+            print(f"--- [UI] Successfully parsed JSON. Found {len(opportunities)} opportunities. ---")
+        else:
+            print("--- [UI] Data received from tool was not a valid JSON array. Passing empty list to UI. ---")
+
+    except Exception as e:
+        print(f"❌ ERROR in index route: {type(e).__name__} - {e}")
+
+    print("--- [UI] Rendering template... ---")
     return render_template('index.html', opportunities=opportunities)
 
 @app.route('/start-closing', methods=['POST'])
