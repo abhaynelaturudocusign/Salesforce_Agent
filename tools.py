@@ -71,7 +71,7 @@ def get_open_opportunities() -> str:
                     FROM OpportunityContactRoles 
                     WHERE IsPrimary = true LIMIT 1) 
             FROM Opportunity 
-            WHERE StageName = 'Negotiation/Review' AND IsClosed = false 
+            WHERE StageName != 'Closed Won' AND IsClosed = false 
             ORDER BY Amount DESC
         """
         result = sf.query(query)
