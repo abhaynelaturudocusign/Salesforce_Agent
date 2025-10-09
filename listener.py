@@ -1,7 +1,7 @@
 # listener.py
 import os
 import json
-from flask import Flask, request, Response, render_template, redirect, url_for
+from flask import Flask, request, Response, render_template, redirect, url_for,jsonify
 from tools import get_open_opportunities, update_contact_email
 import xmltodict
 import threading
