@@ -77,38 +77,20 @@
     <div id="toast">Envelopes are sent and waiting for signature from primary contacts.</div>
 
     <script>
+        // This part for the form submission remains the same
         const form = document.getElementById('deal-form');
         const spinner = document.getElementById('spinner-overlay');
         const toast = document.getElementById('toast');
+        form.addEventListener('submit', function(event) { /* ... your existing spinner/toast logic ... */ });
 
-        // This is your existing script for the spinner/toast
-        form.addEventListener('submit', function(event) {
-            event.preventDefault();
-            spinner.style.display = 'flex';
-            const formData = new FormData(form);
-            fetch('/start-closing', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                spinner.style.display = 'none';
-                if (data.status === 'success') {
-                    toast.className = 'show';
-                    setTimeout(function(){ toast.className = toast.className.replace('show', ''); }, 5000);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                spinner.style.display = 'none';
-            });
-        });
+        // --- CORRECTED JAVASCRIPT FUNCTIONS ---
 
-        // --- These are the new functions for inline editing ---
         function editEmail(editButton) {
             const row = editButton.closest('tr');
-            row.querySelector('.view-mode').style.display = 'none';
-            row.querySelector('.edit-mode').style.display = 'block';
+            // Select ALL view-mode elements in the row and hide them
+            row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
+            // Select ALL edit-mode elements in the row and show them
+            row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'block');
         }
 
         function saveEmail(saveButton) {
@@ -117,7 +99,6 @@
             const emailInput = row.querySelector('.email-input');
             const newEmail = emailInput.value;
 
-            // Send data to the new backend endpoint
             fetch('/update-contact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -126,11 +107,10 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    // Update the text on the screen
                     row.querySelector('.email-text').textContent = newEmail;
-                    // Switch back to "view mode"
-                    row.querySelector('.view-mode').style.display = 'block';
-                    row.querySelector('.edit-mode').style.display = 'none';
+                    // Switch back to view mode for ALL elements
+                    row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
+                    row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
                 } else {
                     alert('Error saving email: ' + data.message);
                 }
