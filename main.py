@@ -60,8 +60,18 @@ def start_deal_process(opportunity_id, template_id, signer_role_name):
     - and the 'opportunity_id' which is '{opportunity_id}'.
     Report the outcome and the new Envelope ID.
     """
-    result = agent_executor.invoke({"input": goal})
-    print(f"✅ Initiation complete for Opp {opportunity_id}: {result['output']}")
+    try:
+        result = agent_executor.invoke({"input": goal})
+        print(f"✅ Initiation complete for Opp {opportunity_id}: {result['output']}")
+    except Exception as e:
+        print(f"❌ Error processing Opp {opportunity_id}: {e}")
+    finally:
+        # This block runs whether the agent succeeds or fails
+        with tasks_lock:
+            if task_id in tasks:
+                tasks[task_id]["completed"] += 1
+                if tasks[task_id]["completed"] == tasks[task_id]["total"]:
+                    tasks[task_id]["status"] = "completed"
 
 def finalize_deal(envelope_id, opportunity_id):
     """Called by the webhook listener to finalize the deal."""

@@ -1,10 +1,12 @@
 # listener.py
+from main import start_deal_process
 import os
 import json
 from flask import Flask, request, Response, render_template, redirect, url_for,jsonify
 from tools import get_open_opportunities, update_contact_email
 import xmltodict
 import threading
+import uuid
 
 # Import the agent functions from your main.py file
 from main import start_deal_process, finalize_deal 
@@ -12,6 +14,8 @@ from main import start_deal_process, finalize_deal
 from tools import get_open_opportunities
 
 app = Flask(__name__)
+tasks = {}
+tasks_lock = threading.Lock()
 
 @app.route('/', methods=['GET'])
 def index():
@@ -41,20 +45,25 @@ def index():
 
 @app.route('/start-closing', methods=['POST'])
 def start_closing():
-    """Receives the selected Opportunity IDs and triggers the agent for each."""
+    """Receives Opp IDs, creates a task, starts agents, and returns a task ID."""
     opportunity_ids = request.form.getlist('opportunity_ids')
-    
-    # You can get these from a config file or the UI in a more advanced version
+    if not opportunity_ids:
+        return jsonify({"status": "error", "message": "No opportunities selected."}), 400
+
+    task_id = str(uuid.uuid4())
+    with tasks_lock:
+        tasks[task_id] = {"total": len(opportunity_ids), "completed": 0, "status": "running"}
+
     template_id = "e6e01c3e-6545-4a50-947e-9035fe2e243b"
     signer_role = "Signer"
 
     for opp_id in opportunity_ids:
-        print(f"Starting deal process for Opportunity: {opp_id}")
-        # Run each agent process in a background thread
-        thread = threading.Thread(target=start_deal_process, args=(opp_id, template_id, signer_role))
+        print(f"Queueing deal process for Opportunity: {opp_id}")
+        # Pass the task_id to the background thread
+        thread = threading.Thread(target=start_deal_process, args=(opp_id, template_id, signer_role, task_id, tasks, tasks_lock))
         thread.start()
-        
-    return redirect(url_for('index')) # Redirect back to the main page
+
+    return jsonify({"status": "started", "task_id": task_id})
 
 @app.route('/webhook', methods=['POST'])
 def docusign_webhook():
@@ -107,5 +116,13 @@ def update_contact():
         return jsonify({"status": "success", "message": result})
     else:
         return jsonify({"status": "error", "message": result}), 500
+    
+@app.route('/task-status/<task_id>', methods=['GET'])
+def task_status(task_id):
+    """Checks the status of a background task."""
+    with tasks_lock:
+        task = tasks.get(task_id, {})
+    return jsonify(task)
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)
