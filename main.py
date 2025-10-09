@@ -48,7 +48,7 @@ agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_pa
 
 
 # --- AGENT WORKER FUNCTIONS ---
-def start_deal_process(opportunity_id, template_id, signer_role_name):
+def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, tasks, tasks_lock):
     """Initiates the process by sending the contract."""
     print(f"🚀 Starting the deal process for Opportunity {opportunity_id}...")
     goal = f"""
