@@ -64,14 +64,14 @@ def get_open_opportunities() -> str:
     """
     print("--- Calling Tool: get_open_opportunities ---")
     try:
-        # Updated query to include Contact.Name
+        # Updated query to include Contact.Id
         query = """
             SELECT Id, Name, Amount, CloseDate, 
-                   (SELECT Contact.Name, Contact.Email 
+                   (SELECT Contact.Id, Contact.Name, Contact.Email 
                     FROM OpportunityContactRoles 
                     WHERE IsPrimary = true LIMIT 1) 
             FROM Opportunity 
-            WHERE StageName != 'Closed Won' AND IsClosed = false 
+            WHERE StageName = 'Negotiation/Review' AND IsClosed = false 
             ORDER BY Amount DESC
         """
         result = sf.query(query)
@@ -80,15 +80,16 @@ def get_open_opportunities() -> str:
         if not records:
             return "[]"
 
-        # Process records to flatten the contact info for easier use
         for opp in records:
             contact_roles = opp.get('OpportunityContactRoles')
             if contact_roles and contact_roles['records']:
                 contact = contact_roles['records'][0]['Contact']
+                opp['PrimaryContactId'] = contact['Id'] # <-- Add Contact ID
                 opp['PrimaryContactName'] = contact['Name']
                 opp['PrimaryContactEmail'] = contact['Email']
             else:
-                opp['PrimaryContactName'] = 'N/A' # Handle cases with no primary contact
+                opp['PrimaryContactId'] = None # <-- Handle no contact
+                opp['PrimaryContactName'] = 'N/A'
                 opp['PrimaryContactEmail'] = 'N/A'
             
             del opp['OpportunityContactRoles']
@@ -274,3 +275,18 @@ def download_and_attach_document_to_salesforce(tool_input: str) -> str:
             
     except Exception as e:
         return f"An error occurred during the download/attach process: {type(e).__name__} - {e}"
+def update_contact_email(tool_input: str) -> str:
+    """Updates the email address for a specific Salesforce Contact. The input must be a JSON string with the keys 'contact_id' and 'new_email'."""
+    print(f"--- Calling Tool: update_contact_email with input {tool_input} ---")
+    try:
+        args = json.loads(tool_input)
+        contact_id = args['contact_id']
+        new_email = args['new_email']
+    except (json.JSONDecodeError, KeyError) as e:
+        return f"Error: Invalid input format. Details: {e}"
+
+    try:
+        sf.Contact.update(contact_id, {'Email': new_email})
+        return f"Successfully updated email for Contact {contact_id}."
+    except Exception as e:
+        return f"Salesforce API Error: {e}"

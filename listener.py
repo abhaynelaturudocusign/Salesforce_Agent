@@ -2,6 +2,7 @@
 import os
 import json
 from flask import Flask, request, Response, render_template, redirect, url_for
+from tools import get_open_opportunities, update_contact_email
 import xmltodict
 import threading
 
@@ -72,6 +73,25 @@ def docusign_webhook():
         print(f"❌ Error processing webhook: {e}")
         
     return Response(status=200)
+@app.route('/update-contact', methods=['POST'])
+def update_contact():
+    """Receives a contact ID and new email and updates it in Salesforce."""
+    data = request.get_json()
+    contact_id = data.get('contact_id')
+    new_email = data.get('new_email')
 
+    if not contact_id or not new_email:
+        return jsonify({"status": "error", "message": "Missing contact_id or new_email."}), 400
+
+    # Create the JSON string input for the tool
+    tool_input = json.dumps({"contact_id": contact_id, "new_email": new_email})
+
+    # Call the tool
+    result = update_contact_email(tool_input)
+
+    if "Successfully" in result:
+        return jsonify({"status": "success", "message": result})
+    else:
+        return jsonify({"status": "error", "message": result}), 500
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)

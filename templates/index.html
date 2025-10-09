@@ -6,43 +6,64 @@
     <style>
         body { font-family: sans-serif; margin: 2em; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: middle; }
         th { background-color: #f2f2f2; }
-        button { background-color: #0070d2; color: white; padding: 10px 15px; border: none; cursor: pointer; }
+        button, .edit-btn, .save-btn { background-color: #0070d2; color: white; padding: 5px 10px; border: none; cursor: pointer; border-radius: 4px; font-size: 12px; }
+        .edit-btn { background-color: #555; }
+        .email-input { padding: 4px; width: 95%; }
+        .edit-mode { display: none; }
+        #spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
+        .spinner { border: 8px solid #f3f3f3; border-top: 8px solid #0070d2; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #toast { visibility: hidden; min-width: 250px; background-color: #4CAF50; color: white; text-align: center; border-radius: 2px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 30px; }
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 4.5s; }
+        @keyframes fadein { from {top: 0; opacity: 0;} to {top: 30px; opacity: 1;} }
+        @keyframes fadeout { from {top: 30px; opacity: 1;} to {top: 0; opacity: 0;} }
     </style>
 </head>
 <body>
     <h1>Opportunities Ready to Close</h1>
-    <p>Select the opportunities you have received verbal approval for and click the button to start the closing process.</p>
-    <form action="/start-closing" method="post">
+    <form id="deal-form">
         <table>
             <thead>
                 <tr>
                     <th>Select</th>
-                    <th>Opportunity ID</th> <th>Opportunity Name</th>
+                    <th>Opportunity ID</th>
+                    <th>Opportunity Name</th>
                     <th>Amount</th>
                     <th>Primary Contact Name</th>
                     <th>Primary Contact Email</th>
                     <th>Close Date</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for opp in opportunities %}
-                <tr>
+                <tr data-contact-id="{{ opp.PrimaryContactId }}">
                     <td>
-                        {% if opp.PrimaryContactEmail == 'N/A' %}
-                            <span title="Update the Opportunity in Salesforce to add a primary contact.">
-                                <input type="checkbox" disabled>
-                            </span>
-                        {% else %}
-                            <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}">
-                        {% endif %}
+                        <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>
                     </td>
-                    <td>{{ opp.Id }}</td> <td>{{ opp.Name }}</td>
+                    <td>{{ opp.Id }}</td>
+                    <td>{{ opp.Name }}</td>
                     <td>${{ opp.Amount }}</td>
                     <td>{{ opp.PrimaryContactName }}</td>
-                    <td>{{ opp.PrimaryContactEmail }}</td>
+                    <td>
+                        <div class="view-mode">
+                            <span class="email-text">{{ opp.PrimaryContactEmail }}</span>
+                        </div>
+                        <div class="edit-mode">
+                            <input type="email" class="email-input" value="{{ opp.PrimaryContactEmail }}">
+                        </div>
+                    </td>
                     <td>{{ opp.CloseDate }}</td>
+                    <td>
+                        <div class="view-mode">
+                             <button type="button" class="edit-btn" onclick="editEmail(this)" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>Edit</button>
+                        </div>
+                        <div class="edit-mode">
+                            <button type="button" class="save-btn" onclick="saveEmail(this)">Save</button>
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -50,5 +71,69 @@
         <br>
         <button type="submit">Start Closing Selected Deals</button>
     </form>
+    
+    <div id="spinner-overlay"><div class="spinner"></div></div>
+    <div id="toast">Envelopes are sent and waiting for signature from primary contacts.</div>
+
+    <script>
+        const form = document.getElementById('deal-form');
+        const spinner = document.getElementById('spinner-overlay');
+        const toast = document.getElementById('toast');
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            spinner.style.display = 'flex';
+            const formData = new FormData(form);
+            fetch('/start-closing', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                spinner.style.display = 'none';
+                if (data.status === 'success') {
+                    toast.className = 'show';
+                    setTimeout(function(){ toast.className = toast.className.replace('show', ''); }, 5000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                spinner.style.display = 'none';
+            });
+        });
+
+        function editEmail(editButton) {
+            const row = editButton.closest('tr');
+            row.querySelector('.view-mode').style.display = 'none';
+            row.querySelector('.edit-mode').style.display = 'block';
+        }
+
+        function saveEmail(saveButton) {
+            const row = saveButton.closest('tr');
+            const contactId = row.dataset.contactId;
+            const emailInput = row.querySelector('.email-input');
+            const newEmail = emailInput.value;
+
+            fetch('/update-contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contact_id: contactId, new_email: newEmail })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    row.querySelector('.email-text').textContent = newEmail;
+                    row.querySelector('.view-mode').style.display = 'block';
+                    row.querySelector('.edit-mode').style.display = 'none';
+                } else {
+                    alert('Error saving email: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please check the console.');
+            });
+        }
+    </script>
 </body>
 </html>
