@@ -106,6 +106,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         project_name = args.get('project_name')
         static_legal_template_id = args.get('static_legal_template_id')
         opportunity_id = args.get('opportunity_id', '')
+        signer_role_name = args.get('signer_role_name', 'Signer')
         
         # Extract PDF specific data
         pdf_data = args.get('pdf_data', {})
@@ -145,7 +146,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         signer = Signer(
             email=client_email,
             name=client_name,
-            role_name="ClientSigner", # <--- IMPORTANT: Check this matches your DocuSign Template Role EXACTLY
+            role_name=signer_role_name, # <--- IMPORTANT: Check this matches your DocuSign Template Role EXACTLY
             recipient_id="1"
         )
 

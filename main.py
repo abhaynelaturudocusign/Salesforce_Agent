@@ -74,6 +74,7 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
        - 'project_name': Use the Opportunity Name.
        - 'static_legal_template_id': '{template_id}'
        - 'opportunity_id': '{opportunity_id}'
+       - 'signer_role_name': '{signer_role_name}'
        - 'pdf_data': Construct a dictionary with the content you drafted (background_text, objectives_text, scope_items, milestones).
        
     Report the final Envelope ID.
