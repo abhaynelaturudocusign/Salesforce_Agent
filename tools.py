@@ -41,6 +41,8 @@ def get_docusign_client():
     Generates a fresh, authenticated DocuSign API client.
     This is called inside every tool to ensure the token is never expired.
     """
+
+    print(f"--- 🔄 AUTHENTICATING: Requesting a fresh DocuSign token at {datetime.datetime.now()} ---")
     try:
         api_client = ApiClient()
         api_client.host = os.getenv("DOCUSIGN_HOST")
