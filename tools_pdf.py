@@ -100,7 +100,7 @@ def generate_scope_and_milestones_pdf(data_dictionary):
         </table>
 
         <div style="margin-top:50px;">
-            <span class="hidden-anchor">\\s1\\</span>
+            <span class="hidden-anchor">\\SIGNATURES\\</span>
         </div>
 
     </body>
