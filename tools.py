@@ -90,6 +90,8 @@ def get_opportunity_line_items(opportunity_id: str) -> str:
 
 # tools.py
 
+# tools.py
+
 def create_composite_sow_envelope(tool_input: str) -> str:
     """
     Generates a dynamic SOW PDF and merges it with a static DocuSign Legal Template.
@@ -109,10 +111,8 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         signer_role_name = args.get('signer_role_name', 'Signer')
         pdf_data = args.get('pdf_data', {})
 
-        # --- VALIDATION: Check for missing fields to prevent KeyError ---
-        if not client_email: return "Error: Missing 'client_email'. Agent failed to extract it."
-        if not client_name: return "Error: Missing 'client_name'."
-        if not static_legal_template_id: return "Error: Missing 'static_legal_template_id'."
+        if not client_email or not client_name or not static_legal_template_id:
+            return "Error: Missing required client or template details."
 
         # 1. Generate the Dynamic PDF
         pdf_data['client_name'] = client_name
@@ -123,17 +123,9 @@ def create_composite_sow_envelope(tool_input: str) -> str:
             dynamic_pdf_bytes = file.read()
         dynamic_doc_b64 = base64.b64encode(dynamic_pdf_bytes).decode("ascii")
 
-        # 2. Create the Document Object
-        # This is the PDF we generated. 
-        doc_sow = Document(
-            document_base64=dynamic_doc_b64,
-            name="Scope of Work", # Name that appears in email
-            document_id="1",
-            file_extension="pdf"
-        )
-
-        # 3. Create the Signer Object
-        # We force recipient_id="1" to match the default in most templates
+        # 2. Prepare The Recipient (The Signer)
+        # We define the signer here. Because the Role Name matches the template,
+        # DocuSign will automatically apply this signer to the Legal Template later.
         signer = Signer(
             email=client_email,
             name=client_name,
@@ -142,34 +134,49 @@ def create_composite_sow_envelope(tool_input: str) -> str:
             routing_order="1"
         )
 
-        # 4. Construct the Composite Template
-        # This specific structure is key. We use ONE Composite Template that contains:
-        # - The Server Template (Legal Terms)
-        # - An Inline Template (The PDF + The Recipient Mapping)
+        # 3. Construct Composite Template #1: The Dynamic SOW PDF
+        # This acts as the "Front" of the document.
+        doc_sow = Document(
+            document_base64=dynamic_doc_b64,
+            name="Scope of Work",
+            document_id="1", # This ID is local to this composite template
+            file_extension="pdf"
+        )
         
-        server_template = ServerTemplate(sequence="1", template_id=static_legal_template_id)
-        
-        inline_template = InlineTemplate(
-            sequence="2",
-            documents=[doc_sow], # The PDF
-            recipients=Recipients(signers=[signer]) # The Signer (Mapped to Template)
+        # We put the Signer in this Inline Template so they are established for the envelope
+        inline_template_pdf = InlineTemplate(
+            sequence="1",
+            documents=[doc_sow],
+            recipients=Recipients(signers=[signer]) 
         )
 
-        comp_template = CompositeTemplate(
+        comp_template_pdf = CompositeTemplate(
             composite_template_id="1",
-            server_templates=[server_template],
-            inline_templates=[inline_template]
+            inline_templates=[inline_template_pdf]
+        )
+
+        # 4. Construct Composite Template #2: The Legal Terms
+        # This acts as the "Back" of the document.
+        server_template_legal = ServerTemplate(
+            sequence="1", 
+            template_id=static_legal_template_id
+        )
+
+        comp_template_legal = CompositeTemplate(
+            composite_template_id="2",
+            server_templates=[server_template_legal]
         )
 
         # 5. Add Custom Fields (for tracking)
         opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
         custom_fields = CustomFields(text_custom_fields=[opp_id_field])
 
-        # 6. Build Envelope
+        # 6. Build Envelope with BOTH Composite Templates
+        # The order in this list determines the order in the final document.
         envelope_def = EnvelopeDefinition(
             status="sent",
             email_subject=f"SOW for {project_name}",
-            composite_templates=[comp_template],
+            composite_templates=[comp_template_pdf, comp_template_legal], # <--- STACKED HERE
             custom_fields=custom_fields
         )
 
