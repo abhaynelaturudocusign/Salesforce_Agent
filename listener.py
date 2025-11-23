@@ -54,8 +54,8 @@ def start_closing():
     with tasks_lock:
         tasks[task_id] = {"total": len(opportunity_ids), "completed": 0, "status": "running"}
 
-    template_id = "e6e01c3e-6545-4a50-947e-9035fe2e243b"
-    signer_role = "Signer"
+    template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"
+    signer_role = "ClientSigner"
 
     for opp_id in opportunity_ids:
         print(f"Queueing deal process for Opportunity: {opp_id}")

@@ -9,6 +9,8 @@ import datetime
 from dotenv import load_dotenv
 from docusign_esign import ApiClient, EnvelopesApi, EnvelopeDefinition, Document, Signer, SignHere, Tabs, Recipients, TemplateRole, TextCustomField, CustomFields
 from simple_salesforce import Salesforce
+from docusign_esign import CompositeTemplate, ServerTemplate, InlineTemplate, Document
+from tools_pdf import generate_scope_and_milestones_pdf # Import the new PDF tool
 # ... other imports ...
 
 # Load environment variables from .env file
@@ -68,6 +70,108 @@ def get_docusign_client():
         return None
 
 # tools.py (new tool)
+
+def get_opportunity_line_items(opportunity_id: str) -> str:
+    """Fetches the product line items for a Salesforce Opportunity."""
+    print(f"--- Calling Tool: get_opportunity_line_items for {opportunity_id} ---")
+    try:
+        query = f"""
+            SELECT Product2.Name, Quantity, UnitPrice, Description, ServiceDate 
+            FROM OpportunityLineItem 
+            WHERE OpportunityId = '{opportunity_id}'
+        """
+        result = sf.query(query)
+        records = result.get('records', [])
+        if not records:
+            return "No line items found."
+        return json.dumps(records)
+    except Exception as e:
+        return f"Salesforce API Error: {e}"
+
+def create_composite_sow_envelope(tool_input: str) -> str:
+    """
+    Generates a dynamic SOW PDF and merges it with a static DocuSign Legal Template.
+    Input must be a JSON string with:
+    - 'client_name', 'client_email', 'project_name'
+    - 'static_legal_template_id' (The DocuSign ID for the legal T&Cs)
+    - 'pdf_data': A dictionary containing all fields needed for the PDF generation 
+       (background_text, objectives_text, scope_items, milestones, etc.)
+    - 'opportunity_id' (For custom field tracking)
+    """
+    print(f"--- Calling Tool: create_composite_sow_envelope ---")
+    
+    # 1. Authenticate
+    api_client = get_docusign_client()
+    if not api_client: return "Error: DocuSign Auth Failed"
+
+    try:
+        args = json.loads(tool_input)
+        client_name = args['client_name']
+        client_email = args['client_email']
+        project_name = args['project_name']
+        static_legal_template_id = args['static_legal_template_id']
+        pdf_data = args['pdf_data']
+        opportunity_id = args.get('opportunity_id', '')
+
+        # 2. Generate the Dynamic PDF (Layer 1)
+        # Ensure required fields are present for the PDF generator
+        pdf_data['client_name'] = client_name
+        pdf_data['project_name'] = project_name
+        
+        dynamic_pdf_path = generate_scope_and_milestones_pdf(pdf_data)
+        
+        with open(dynamic_pdf_path, "rb") as file:
+            dynamic_pdf_bytes = file.read()
+        dynamic_doc_b64 = base64.b64encode(dynamic_pdf_bytes).decode("ascii")
+
+        # 3. Construct the Composite Template
+        
+        # Layer 1: The Dynamic PDF (Scope)
+        doc_1 = Document(
+            document_base64=dynamic_doc_b64,
+            name="Scope of Work",
+            document_id="1",
+            file_extension="pdf"
+        )
+        inline_template = InlineTemplate(sequence="1", documents=[doc_1])
+
+        # Layer 2: The Static Legal Template
+        server_template = ServerTemplate(sequence="2", template_id=static_legal_template_id)
+
+        # Layer 3: Recipient Data
+        # Add the custom field for tracking
+        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
+        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
+
+        signer = Signer(
+            email=client_email,
+            name=client_name,
+            role_name="ClientSigner", # Must match the role in your DocuSign template
+            recipient_id="1"
+        )
+
+        comp_template = CompositeTemplate(
+            composite_template_id="1",
+            inline_templates=[inline_template],
+            server_templates=[server_template]
+        )
+
+        envelope_def = EnvelopeDefinition(
+            status="sent",
+            email_subject=f"SOW for {project_name}",
+            composite_templates=[comp_template],
+            recipients=Recipients(signers=[signer]),
+            custom_fields=custom_fields
+        )
+
+        # 4. Send
+        envelopes_api = EnvelopesApi(api_client)
+        result = envelopes_api.create_envelope(os.getenv("DOCUSIGN_API_ACCOUNT_ID"), envelope_definition=envelope_def)
+        
+        return f"SOW Sent! Envelope ID: {result.envelope_id}"
+
+    except Exception as e:
+        return f"Error generating SOW: {e}"
 
 def get_open_opportunities() -> str:
     """
