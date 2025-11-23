@@ -70,7 +70,7 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
     3. EXECUTE:
     Use the 'Create Composite SOW' tool.
     - Pass the 'static_legal_template_id': '{template_id}'
-    - Pass the 'signer_role_name': '{signer_role}'
+    - Pass the 'signer_role_name': '{signer_role_name}'
     - Construct the 'pdf_data' object with the content you drafted above (background_text, objectives_text, scope_items, milestones).
 
     Report the final Envelope ID.
