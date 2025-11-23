@@ -56,23 +56,26 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
     
     goal = f"""
     Act as a Solution Architect for Opportunity '{opportunity_id}'.
-
+    
     1. GATHER DATA:
-    - Get Opportunity details (Client Name, Contact).
-    - Get Opportunity Line Items (Products, Prices).
-
+       - Get Opportunity details to find the 'Primary Contact Name' and 'Primary Contact Email'.
+       - Get Opportunity Line Items (Products, Prices).
+    
     2. DRAFT CONTENT:
-    - Write a 2-sentence "Background" on why the client needs this project.
-    - Write 3 "Objectives" based on the products being sold.
-    - Summarize the Line Items into a list of "Scope Items".
-    - Format the Line Items into a JSON list of "Milestones" (Name, Date, Amount).
-
+       - Write a 2-sentence "Background" on why the client needs this project.
+       - Write 3 "Objectives" based on the products being sold.
+       - Summarize the Line Items into a list of "Scope Items".
+       - Format the Line Items into a JSON list of "Milestones" (Name, Date, Amount).
+    
     3. EXECUTE:
-    Use the 'Create Composite SOW' tool.
-    - Pass the 'static_legal_template_id': '{template_id}'
-    - Pass the 'signer_role_name': '{signer_role_name}'
-    - Construct the 'pdf_data' object with the content you drafted above (background_text, objectives_text, scope_items, milestones).
-
+       Use the 'Create Composite SOW' tool.
+       - 'client_name': Use the Primary Contact Name found in step 1.
+       - 'client_email': Use the Primary Contact Email found in step 1.
+       - 'project_name': Use the Opportunity Name.
+       - 'static_legal_template_id': '{template_id}'
+       - 'opportunity_id': '{opportunity_id}'
+       - 'pdf_data': Construct a dictionary with the content you drafted (background_text, objectives_text, scope_items, milestones).
+       
     Report the final Envelope ID.
     """
 

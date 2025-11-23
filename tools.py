@@ -91,12 +91,6 @@ def get_opportunity_line_items(opportunity_id: str) -> str:
 def create_composite_sow_envelope(tool_input: str) -> str:
     """
     Generates a dynamic SOW PDF and merges it with a static DocuSign Legal Template.
-    Input must be a JSON string with:
-    - 'client_name', 'client_email', 'project_name'
-    - 'static_legal_template_id' (The DocuSign ID for the legal T&Cs)
-    - 'pdf_data': A dictionary containing all fields needed for the PDF generation 
-       (background_text, objectives_text, scope_items, milestones, etc.)
-    - 'opportunity_id' (For custom field tracking)
     """
     print(f"--- Calling Tool: create_composite_sow_envelope ---")
     
@@ -106,15 +100,20 @@ def create_composite_sow_envelope(tool_input: str) -> str:
 
     try:
         args = json.loads(tool_input)
-        client_name = args['client_name']
-        client_email = args['client_email']
-        project_name = args['project_name']
-        static_legal_template_id = args['static_legal_template_id']
-        pdf_data = args['pdf_data']
+        # Extract basic details
+        client_name = args.get('client_name')
+        client_email = args.get('client_email')
+        project_name = args.get('project_name')
+        static_legal_template_id = args.get('static_legal_template_id')
         opportunity_id = args.get('opportunity_id', '')
+        
+        # Extract PDF specific data
+        pdf_data = args.get('pdf_data', {})
+        
+        if not client_email or not client_name:
+            return "Error: Missing client_name or client_email in input."
 
         # 2. Generate the Dynamic PDF (Layer 1)
-        # Ensure required fields are present for the PDF generator
         pdf_data['client_name'] = client_name
         pdf_data['project_name'] = project_name
         
@@ -126,33 +125,38 @@ def create_composite_sow_envelope(tool_input: str) -> str:
 
         # 3. Construct the Composite Template
         
-        # Layer 1: The Dynamic PDF (Scope)
+        # --- COMPONENT 1: The Generated PDF (Sequence 1) ---
+        # This document sits "on top" of the envelope.
         doc_1 = Document(
             document_base64=dynamic_doc_b64,
             name="Scope of Work",
             document_id="1",
             file_extension="pdf"
         )
+        # We wrap this in an inline template
         inline_template = InlineTemplate(sequence="1", documents=[doc_1])
 
-        # Layer 2: The Static Legal Template
+        # --- COMPONENT 2: The Legal Template (Sequence 2) ---
+        # This pulls in the tabs/fields from DocuSign
         server_template = ServerTemplate(sequence="2", template_id=static_legal_template_id)
 
-        # Layer 3: Recipient Data
-        # Add the custom field for tracking
-        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
-        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
-
+        # --- COMPONENT 3: Recipient Mapping ---
+        # This links our 'client_email' to the role defined in the Server Template
         signer = Signer(
             email=client_email,
             name=client_name,
-            role_name="ClientSigner", # Must match the role in your DocuSign template
+            role_name="ClientSigner", # <--- IMPORTANT: Check this matches your DocuSign Template Role EXACTLY
             recipient_id="1"
         )
 
+        # Add the Custom Field for tracking
+        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
+        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
+
+        # Combine everything
         comp_template = CompositeTemplate(
             composite_template_id="1",
-            inline_templates=[inline_template],
+            inline_templates=[inline_template], 
             server_templates=[server_template]
         )
 
@@ -171,6 +175,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         return f"SOW Sent! Envelope ID: {result.envelope_id}"
 
     except Exception as e:
+        print(f"DocuSign API Error Detail: {e}") # Print full error to log
         return f"Error generating SOW: {e}"
 
 def get_open_opportunities() -> str:
