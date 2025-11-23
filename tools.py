@@ -33,27 +33,36 @@ sf = Salesforce(
     session=session  # <--- PASS THE MODIFIED SESSION
 )
 
-# DocuSign API Client Setup
-# NOTE: This uses the JWT Grant authentication flow which is common for service integrations.
-api_client = ApiClient()
-api_client.host = os.getenv("DOCUSIGN_HOST")
-api_client.oauth_host_name = "account-d.docusign.com"  # Use account.docusign.com for demo
-
-try:
-    # This function call performs the JWT authentication
-    api_client.request_jwt_user_token(
-        client_id=os.getenv("DOCUSIGN_IK"),
-        user_id=os.getenv("DOCUSIGN_USER_ID"),
-        oauth_host_name="account-d.docusign.com",
-        private_key_bytes=open("docusign_private.key").read(),
-        expires_in=3600,
-        scopes=["signature", "impersonation"])
-except Exception as e:
-    print(f"DocuSign Auth Error: {e}")
-    # Handle the error appropriately, maybe exit or raise
-    api_client = None  # Ensure api_client is None if auth fails
-
 # --- TOOL DEFINITIONS ---
+
+# --- ADD THIS NEW FUNCTION ---
+def get_docusign_client():
+    """
+    Generates a fresh, authenticated DocuSign API client.
+    This is called inside every tool to ensure the token is never expired.
+    """
+    try:
+        api_client = ApiClient()
+        api_client.host = os.getenv("DOCUSIGN_HOST")
+        api_client.oauth_host_name = "account-d.docusign.com"
+
+        # Generate a new token
+        token_response = api_client.request_jwt_user_token(
+            client_id=os.getenv("DOCUSIGN_IK"),
+            user_id=os.getenv("DOCUSIGN_USER_ID"),
+            oauth_host_name="account-d.docusign.com",
+            private_key_bytes=open("docusign_private.key").read(),
+            expires_in=3600,
+            scopes=["signature", "impersonation"]
+        )
+        
+        # Attach the token to the client headers
+        api_client.set_default_header("Authorization", "Bearer " + token_response.access_token)
+        return api_client
+        
+    except Exception as e:
+        print(f"❌ DocuSign Authentication Failed: {e}")
+        return None
 
 # tools.py (new tool)
 
@@ -142,6 +151,9 @@ def create_and_send_docusign_from_template(tool_input: str) -> str:
     print(
         f"--- Calling Tool: create_and_send_docusign_from_template with input {tool_input} ---"
     )
+
+    api_client = get_docusign_client()
+
     if not api_client:
         return "Error: DocuSign API client is not authenticated."
 
@@ -188,6 +200,7 @@ def get_docusign_envelope_status(envelope_id: str) -> str:
     print(
         f"--- Calling Tool: get_docusign_envelope_status for ID {envelope_id} ---"
     )
+    api_client = get_docusign_client()
     if not api_client:
         return "Error: DocuSign API client is not authenticated."
     try:
@@ -233,6 +246,7 @@ def download_and_attach_document_to_salesforce(tool_input: str) -> str:
     'envelope_id', 'record_id' (the Opportunity ID), and 'file_name'.
     """
     print(f"--- Calling Tool: download_and_attach_document_to_salesforce with input {tool_input} ---")
+    api_client = get_docusign_client()
     if not api_client:
         return "Error: DocuSign API client is not authenticated."
 
