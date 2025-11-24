@@ -25,20 +25,17 @@ class AgentLogHandler(BaseCallbackHandler):
     def __init__(self, task_id, opp_id):
         self.task_id = task_id
         self.prefix = f"[{opp_id}] "
-        # Track the last message to prevent duplicates
         self.last_message = ""
+        # Default placeholder until we find the real name
+        self.account_name = "Client" 
     
     def update_status(self, status_text):
-        """Update the 'friendly' status text under the spinner."""
         with tasks_lock:
             if self.task_id in tasks:
                 tasks[self.task_id]['current_step'] = status_text
 
     def log(self, message):
-        """Append log only if it's new (debounce duplicates)."""
-        if message == self.last_message:
-            return
-        
+        if message == self.last_message: return
         self.last_message = message
         with tasks_lock:
             if self.task_id in tasks:
@@ -47,21 +44,34 @@ class AgentLogHandler(BaseCallbackHandler):
     # --- EVENT HANDLERS ---
 
     def on_chain_start(self, serialized, inputs, **kwargs):
-        # Filter out internal chains (like LLMChain), only show the main AgentExecutor
         if serialized.get("name") == "AgentExecutor":
-            self.log("🤖 Agent activated. Analyzing Opportunity...")
+            self.log("🤖 Agent activated.")
             self.update_status("🧠 Agent Initializing...")
 
     def on_tool_start(self, serialized, input_str, **kwargs):
         tool_name = serialized['name']
         
-        # Map tools to friendly status messages
+        # 1. INTERCEPT DATA: Try to find the Account Name in the tool input
+        if "Create Composite SOW" in tool_name:
+            try:
+                # The input is a JSON string, so we parse it
+                args = json.loads(input_str)
+                # We look for 'account_name', fallback to 'client_name'
+                found_name = args.get('account_name') or args.get('client_name')
+                if found_name:
+                    self.account_name = found_name
+            except:
+                # If parsing fails (e.g. partial JSON), keep the default
+                pass
+
+        # 2. UPDATE STATUS: Use the captured name
         if "Get Opportunity Details" in tool_name:
-            friendly_status = "🔍 Reading Project Data from Salesforce..."
+            friendly_status = "🔍 Reading Salesforce Data..."
         elif "Get Opportunity Line Items" in tool_name:
-            friendly_status = "📦 Analyzing Products & Pricing..."
+            friendly_status = "📦 Analyzing Products..."
         elif "Create Composite SOW" in tool_name:
-            friendly_status = "📝 Generating PDF & Drafting Contract..."
+            # Use the variable here!
+            friendly_status = f"📝 Generating PDF for {self.account_name}..."
         else:
             friendly_status = f"🛠️ Executing: {tool_name}..."
         
@@ -69,27 +79,20 @@ class AgentLogHandler(BaseCallbackHandler):
         self.update_status(friendly_status)
 
     def on_tool_end(self, output, **kwargs):
-        # We don't need to log every tool end, it's noise.
         pass
 
     def on_agent_action(self, action, **kwargs):
-        # Clean up the thought text
-        raw_log = action.log
-        # Extract the "Thought" part before the "Action" part
-        thought = raw_log.split('Action:')[0].replace("Thought:", "").strip()
-        
+        thought = action.log.split('Action:')[0].replace("Thought:", "").strip()
         if thought:
             self.log(f"🤔 Thought: {thought}")
-            # Update status for long drafting phases
             if "draft" in thought.lower() or "prepare" in thought.lower():
-                self.update_status("✍️ Agent is drafting the SOW content...")
+                self.update_status(f"✍️ Drafting SOW content for {self.account_name}...")
 
     def on_chain_end(self, outputs, **kwargs):
-        # Only log completion if it's the main AgentExecutor finishing
-        # We check 'output' key which is typical for the final result
         if 'output' in outputs:
             self.log("🏁 Task process finished.")
-            self.update_status("✅ SOW Sent! Waiting for signature...")
+            # 3. FINAL MESSAGE: Use the captured name
+            self.update_status(f"✅ SOW Sent to {self.account_name}!")
 
 @app.route('/', methods=['GET'])
 def index():

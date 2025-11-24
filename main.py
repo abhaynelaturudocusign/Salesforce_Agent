@@ -69,7 +69,7 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
     3. EXECUTE:
        Use the 'Create Composite SOW' tool.
        
-       IMPORTANT: You must format the 'pdf_data' JSON exactly matching this structure and fill the milestones table please dont summarize the milestones table with one row:
+       IMPORTANT: You must format the 'pdf_data' JSON exactly matching this structure and fill the milestones table please dont summarize the milestones table with one row and also please do not add extra rows and also please do not add random dates in milestones if you didn't receive any data please leave them blank:
        
        {{
            "client_name": "...",
