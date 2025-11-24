@@ -107,6 +107,10 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         opportunity_id = args.get('opportunity_id', '')
         signer_role_name = args.get('signer_role_name', 'Signer')
         total_fixed_fee = args.get('total_fixed_fee', '0.00')
+
+        # --- NEW: Get Account Name ---
+        account_name = args.get('account_name', '')
+
         pdf_data = args.get('pdf_data', {})
 
         if not client_email or not client_name or not static_legal_template_id:
@@ -162,12 +166,20 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         # Custom Fields
         opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
         custom_fields = CustomFields(text_custom_fields=[opp_id_field])
-
+        tabs_list = []
         # 1. Define the Tabs (Text Tab for "Total_Fixed_Fee")
         fee_tab = Text(
             tab_label="Total_Fixed_Fee_Text", # Must match Template Label
             value=str(total_fixed_fee)
         )
+        tabs_list.append(fee_tab)
+        # Account Name Tab (NEW)
+        if account_name:
+            account_tab = Text(
+                tab_label="Account_Label", # Must match DocuSign Template
+                value=str(account_name)
+            )
+        tabs_list.append(account_tab)
         
         # 2. Signer Definition for Legal (WITH TABS)
         # DocuSign merges this with 'signer_pdf' because email/name/id match.
@@ -177,7 +189,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
             role_name=signer_role_name,
             recipient_id="1",
             routing_order="1",
-            tabs=Tabs(text_tabs=[fee_tab]) # <--- TABS GO HERE
+            tabs=Tabs(text_tabs=tabs_list) # <--- TABS GO HERE
         )
 
         # 3. Server Template (The Legal Doc Source)
@@ -298,7 +310,7 @@ def get_opportunity_details(opportunity_id: str) -> str:
     )
     try:
         query = f"""
-            SELECT Name, Amount, StageName, 
+            SELECT Name, Amount, StageName, Account.Name,
                    (SELECT Contact.Name, Contact.Email 
                     FROM OpportunityContactRoles 
                     WHERE IsPrimary = true LIMIT 1) 
@@ -310,13 +322,17 @@ def get_opportunity_details(opportunity_id: str) -> str:
             return f"Error: No Opportunity found with ID {opportunity_id}"
 
         record = result['records'][0]
+
+        # Extract Account Name
+        account_name = record['Account']['Name'] if record['Account'] else "Unknown Account"
+
         contact_roles = record.get('OpportunityContactRoles')
         if not contact_roles or contact_roles['totalSize'] == 0:
             return f"Error: No Primary Contact found for Opportunity {record['Name']}"
 
         contact = contact_roles['records'][0]['Contact']
         details = (
-            f"Opportunity Name: {record['Name']}, Amount: {record['Amount']}, Stage: {record['StageName']}, "
+            f"Opportunity Name: {record['Name']}, Account Name: {account_name}, Amount: {record['Amount']}, Stage: {record['StageName']}, "
             f"Primary Contact Name: {contact['Name']}, Primary Contact Email: {contact['Email']}"
         )
         return details

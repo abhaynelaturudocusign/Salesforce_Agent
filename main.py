@@ -74,6 +74,7 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
        {{
            "client_name": "...",
            "client_email": "...",
+           "account_name": "...",
            "project_name": "...",
            "static_legal_template_id": "{template_id}",
            "signer_role_name": "{signer_role_name}",
