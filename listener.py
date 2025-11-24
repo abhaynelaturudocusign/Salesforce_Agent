@@ -26,13 +26,21 @@ class AgentLogHandler(BaseCallbackHandler):
         self.task_id = task_id
         self.prefix = f"[{opp_id}] "
         self.last_message = ""
-        # Default placeholder until we find the real name
         self.account_name = "Client" 
+        self.sow_sent = False # Track if we actually sent it
     
     def update_status(self, status_text):
         with tasks_lock:
             if self.task_id in tasks:
                 tasks[self.task_id]['current_step'] = status_text
+
+    def mark_deal_complete(self):
+        """Adds the account name to the finished list for the UI"""
+        with tasks_lock:
+            if self.task_id in tasks:
+                # Only add if not already there to avoid duplicates
+                if self.account_name not in tasks[self.task_id]['finished_deals']:
+                    tasks[self.task_id]['finished_deals'].append(self.account_name)
 
     def log(self, message):
         if message == self.last_message: return
@@ -51,32 +59,26 @@ class AgentLogHandler(BaseCallbackHandler):
     def on_tool_start(self, serialized, input_str, **kwargs):
         tool_name = serialized['name']
         
-        # 1. INTERCEPT DATA: Try to find the Account Name in the tool input
         if "Create Composite SOW" in tool_name:
             try:
-                # The input is a JSON string, so we parse it
                 args = json.loads(input_str)
-                # We look for 'account_name', fallback to 'client_name'
                 found_name = args.get('account_name') or args.get('client_name')
                 if found_name:
                     self.account_name = found_name
-            except:
-                # If parsing fails (e.g. partial JSON), keep the default
-                pass
-
-        # 2. UPDATE STATUS: Use the captured name
-        if "Get Opportunity Details" in tool_name:
-            friendly_status = "🔍 Reading Salesforce Data..."
-        elif "Get Opportunity Line Items" in tool_name:
-            friendly_status = "📦 Analyzing Products..."
-        elif "Create Composite SOW" in tool_name:
-            # Use the variable here!
+            except: pass
+            
+            self.sow_sent = True # Mark that we attempted to send
             friendly_status = f"📝 Generating PDF for {self.account_name}..."
+            self.update_status(friendly_status)
+
+        elif "Get Opportunity Details" in tool_name:
+            self.update_status("🔍 Reading Salesforce Data...")
+        elif "Get Opportunity Line Items" in tool_name:
+            self.update_status("📦 Analyzing Products...")
         else:
-            friendly_status = f"🛠️ Executing: {tool_name}..."
+            self.update_status(f"🛠️ Executing: {tool_name}...")
         
         self.log(f"Using tool: {tool_name}")
-        self.update_status(friendly_status)
 
     def on_tool_end(self, output, **kwargs):
         pass
@@ -91,8 +93,10 @@ class AgentLogHandler(BaseCallbackHandler):
     def on_chain_end(self, outputs, **kwargs):
         if 'output' in outputs:
             self.log("🏁 Task process finished.")
-            # 3. FINAL MESSAGE: Use the captured name
-            self.update_status(f"✅ SOW Sent to {self.account_name}!")
+            # If we sent the SOW, add to the success list
+            if self.sow_sent:
+                self.mark_deal_complete()
+                self.update_status(f"✅ SOW Sent to {self.account_name}!")
 
 @app.route('/', methods=['GET'])
 def index():
@@ -140,7 +144,8 @@ def start_closing():
             "completed": 0, 
             "status": "running",
             "logs": [],
-            "current_step": "🚀 Spooling up AI Agents..."
+            "current_step": "🚀 Spooling up AI Agents...",
+            "finished_deals": [] # <--- NEW LIST TO TRACK COMPLETIONS
         }
 
     template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"

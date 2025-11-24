@@ -57,6 +57,26 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+
+        /* New style for the completion list */
+        #completed-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 15px;
+            width: 100%;
+            text-align: center;
+        }
+        .completed-item {
+            color: #04844b;
+            background-color: #eefcf6;
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid #c3e6cb;
+            animation: fadein 0.5s;
+        }
     </style>
 </head>
 <body>
@@ -68,6 +88,7 @@
         <div id="spinner-overlay">
             <div class="spinner"></div>
             <div id="loading-text">Initializing...</div>
+            <ul id="completed-list"></ul>
         </div>
 
         <form id="deal-form">
@@ -174,18 +195,34 @@
 
         function pollStatus(taskId) {
             let lastLogCount = 0;
+            // Keep track of what we have already displayed to avoid flickering
+            let displayedDeals = new Set();
 
             const intervalId = setInterval(() => {
                 fetch(`/task-status/${taskId}`)
                     .then(response => response.json())
                     .then(data => {
                         
-                        // 1. UPDATE STATUS TEXT (Innovative Part)
+                        // 1. UPDATE STATUS TEXT (Current Action)
                         if (data.current_step) {
-                            loadingText.innerText = data.current_step;
+                            document.getElementById('loading-text').innerText = data.current_step;
                         }
 
-                        // 2. Update Console
+                        // 2. UPDATE COMPLETED LIST (The Checklist)
+                        if (data.finished_deals && data.finished_deals.length > 0) {
+                            const listContainer = document.getElementById('completed-list');
+                            data.finished_deals.forEach(dealName => {
+                                if (!displayedDeals.has(dealName)) {
+                                    const li = document.createElement('li');
+                                    li.className = 'completed-item';
+                                    li.innerHTML = `✅ SOW Sent to <b>${dealName}</b>`;
+                                    listContainer.appendChild(li);
+                                    displayedDeals.add(dealName);
+                                }
+                            });
+                        }
+
+                        // 3. Update Console
                         if (data.logs && data.logs.length > lastLogCount) {
                             const newLogs = data.logs.slice(lastLogCount);
                             newLogs.forEach(logMsg => {
@@ -198,12 +235,16 @@
                             lastLogCount = data.logs.length;
                         }
 
-                        // 3. Check Completion
+                        // 4. Check Completion
                         if (data.status === 'completed') {
                             clearInterval(intervalId);
-                            spinner.style.display = 'none'; // Hide spinner and text
-                            toast.className = 'show';
-                            setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
+                            
+                            // OPTIONAL: Delay hiding the spinner so user can see the full checklist
+                            setTimeout(() => {
+                                spinner.style.display = 'none';
+                                toast.className = 'show';
+                                setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
+                            }, 2000); // Wait 2 seconds before removing overlay
                             
                             const div = document.createElement('div');
                             div.className = 'log-entry';
@@ -217,7 +258,7 @@
                     .catch(error => {
                         console.error('Polling Error:', error);
                     });
-            }, 1500); // Faster polling for smoother status updates
+            }, 1500); 
         }
 
         // ... (editEmail and saveEmail functions remain the same) ...
