@@ -99,14 +99,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
     if not api_client: return "Error: DocuSign Auth Failed"
 
     try:
-
-        # Extract PDF Data with Defaults to prevent "Empty" PDF
         args = json.loads(tool_input)
-        pdf_data = args.get('pdf_data', {})
-        pdf_data.setdefault('scope_items', [{'title': 'TBD', 'description': 'No scope provided by agent.'}])
-        pdf_data.setdefault('milestones', [{'name': 'TBD', 'date': 'TBD', 'amount': 'TBD'}])
-
-        
         client_name = args.get('client_name')
         client_email = args.get('client_email')
         project_name = args.get('project_name')
@@ -114,18 +107,12 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         opportunity_id = args.get('opportunity_id', '')
         signer_role_name = args.get('signer_role_name', 'Signer')
         total_fixed_fee = args.get('total_fixed_fee', '0.00')
-
-        
-
-        # --- DEBUG LOGGING ---
-        print(f"DEBUG: PDF DATA RECEIVED: {json.dumps(pdf_data, indent=2)}")
-        print(f"DEBUG: total_fixed_fee : {total_fixed_fee}")
-        # ---------------------
+        pdf_data = args.get('pdf_data', {})
 
         if not client_email or not client_name or not static_legal_template_id:
             return "Error: Missing required client details."
 
-        # 1. Generate PDF
+        # 1. Generate the Dynamic PDF
         pdf_data['client_name'] = client_name
         pdf_data['project_name'] = project_name
         dynamic_pdf_path = generate_scope_and_milestones_pdf(pdf_data)
@@ -134,88 +121,105 @@ def create_composite_sow_envelope(tool_input: str) -> str:
             dynamic_pdf_bytes = file.read()
         dynamic_doc_b64 = base64.b64encode(dynamic_pdf_bytes).decode("ascii")
 
-        fee_tab = Number(
-            tab_label="Total_Fixed_Fee", 
-            value=str(total_fixed_fee)
-        )
+        # ---------------------------------------------------------
+        # PART A: COMPOSITE TEMPLATE 1 - The Generated PDF
+        # ---------------------------------------------------------
+        # Purpose: Just add the PDF document and ensure the signer can see it.
         
-        # IMPORTANT: We pass this list to 'number_tabs', NOT 'text_tabs'
-        signer_tabs = Tabs(number_tabs=[fee_tab])
-
-        # 2. Define the Signer
-        signer = Signer(
-            email=client_email,
-            name=client_name,
-            role_name=signer_role_name, 
-            recipient_id="1",
-            routing_order="1",
-            tabs = signer_tabs
-        )
-
-        # 3. Composite Template A: The Generated PDF (Document 1)
         doc_pdf = Document(
             document_base64=dynamic_doc_b64,
             name="Scope of Work",
             document_id="1",
             file_extension="pdf"
         )
-        
+
+        # Signer Definition for PDF (Access Only, No Tabs)
+        signer_pdf = Signer(
+            email=client_email,
+            name=client_name,
+            role_name=signer_role_name,
+            recipient_id="1",
+            routing_order="1"
+        )
+
         inline_pdf = InlineTemplate(
             sequence="1",
             documents=[doc_pdf],
-            recipients=Recipients(signers=[signer]) # <--- Signer added to PDF
+            recipients=Recipients(signers=[signer_pdf]) 
         )
 
-        comp_pdf = CompositeTemplate(
+        comp_template_pdf = CompositeTemplate(
             composite_template_id="1",
             inline_templates=[inline_pdf]
         )
 
-        # 4. Composite Template B: The Legal Template (Document 2)
-        server_legal = ServerTemplate(
-            sequence="1", 
-            template_id=static_legal_template_id
+        # ---------------------------------------------------------
+        # PART B: COMPOSITE TEMPLATE 2 - The Legal Template
+        # ---------------------------------------------------------
+        # Purpose: Load the Legal Doc and apply the TABS (Total Fee).
+        
+        # 1. Define the Tabs (Text Tab for "Total_Fixed_Fee")
+        fee_tab = Text(
+            tab_label="Total_Fixed_Fee_Text", # Must match Template Label
+            value=str(total_fixed_fee)
         )
         
-        # CRITICAL FIX: We add an Inline Template to the Server Template specifically
-        # to re-declare the recipient. This forces the merge.
-        inline_legal = InlineTemplate(
+        # 2. Signer Definition for Legal (WITH TABS)
+        # DocuSign merges this with 'signer_pdf' because email/name/id match.
+        signer_legal = Signer(
+            email=client_email,
+            name=client_name,
+            role_name=signer_role_name,
+            recipient_id="1",
+            routing_order="1",
+            tabs=Tabs(text_tabs=[fee_tab]) # <--- TABS GO HERE
+        )
+
+        # 3. Server Template (The Legal Doc Source)
+        server_template = ServerTemplate(
+            sequence="1",
+            template_id=static_legal_template_id
+        )
+
+        # 4. Inline Template (The Recipient Overlay)
+        inline_template_legal = InlineTemplate(
             sequence="2",
-            recipients=Recipients(signers=[signer]) # <--- Signer added to Legal Template
+            recipients=Recipients(signers=[signer_legal])
         )
 
-        comp_legal = CompositeTemplate(
+        comp_template_legal = CompositeTemplate(
             composite_template_id="2",
-            server_templates=[server_legal],
-            inline_templates=[inline_legal] 
+            server_templates=[server_template],
+            inline_templates=[inline_template_legal]
         )
 
-        # 5. Custom Fields
+        # ---------------------------------------------------------
+        # PART C: BUILD ENVELOPE
+        # ---------------------------------------------------------
+        
+        # Custom Fields
         opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
         custom_fields = CustomFields(text_custom_fields=[opp_id_field])
 
-        # 6. Build Envelope
+        # Stack them: PDF first, Legal second
         envelope_def = EnvelopeDefinition(
             status="sent",
             email_subject=f"SOW for {project_name}",
-            composite_templates=[comp_pdf, comp_legal], # Stacked
+            composite_templates=[comp_template_pdf, comp_template_legal], # Stacked List
             custom_fields=custom_fields
         )
 
-        # --- 🔍 DEBUG BLOCK: PRINT PAYLOAD ---
+        # --- DEBUG PRINT ---
         print("\n" + "="*30)
         print("🔍 DEBUG: GENERATED DOCUSIGN PAYLOAD")
-        print("="*30)
         try:
-            # The SDK has a helper method to show exactly what will be sent to the API
             payload = api_client.sanitize_for_serialization(envelope_def)
             print(json.dumps(payload, indent=2))
-        except Exception as debug_err:
-            print(f"Could not print debug JSON: {debug_err}")
+        except: pass
         print("="*30 + "\n")
-        # -------------------------------------
+        # -------------------
 
-        # 7. Send
+        # Send
         envelopes_api = EnvelopesApi(api_client)
         result = envelopes_api.create_envelope(os.getenv("DOCUSIGN_API_ACCOUNT_ID"), envelope_definition=envelope_def)
         
