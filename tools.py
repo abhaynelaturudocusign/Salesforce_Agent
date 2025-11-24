@@ -147,7 +147,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
             name=client_name,
             role_name=signer_role_name, 
             recipient_id="1",
-            routing_order="1"
+            routing_order="1",
             tabs = signer_tabs
         )
 
