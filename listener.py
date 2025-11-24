@@ -13,9 +13,39 @@ from main import start_deal_process, finalize_deal
 # Import the new tool from tools.py
 from tools import get_open_opportunities
 
+from langchain.callbacks.base import BaseCallbackHandler
+
 app = Flask(__name__)
 tasks = {}
 tasks_lock = threading.Lock()
+
+# --- NEW CLASS: Agent Log Listener ---
+class AgentLogHandler(BaseCallbackHandler):
+    def __init__(self, task_id, opp_id):
+        self.task_id = task_id
+        self.prefix = f"[{opp_id}] " # Prefix logs with Opp ID so we know which deal it is
+    
+    def on_chain_start(self, serialized, inputs, **kwargs):
+        self.log("🤖 Agent started. Analyzing request...")
+
+    def on_tool_start(self, serialized, input_str, **kwargs):
+        self.log(f"🛠️  Using tool: {serialized['name']}...")
+
+    def on_tool_end(self, output, **kwargs):
+        self.log(f"✅  Tool completed.")
+
+    def on_agent_action(self, action, **kwargs):
+        self.log(f"🤔 Thought: {action.log.split('Action:')[0].strip()}")
+
+    def on_chain_end(self, outputs, **kwargs):
+        self.log("🏁  Process finished.")
+
+    def log(self, message):
+        """Securely append the message to the global task list"""
+        with tasks_lock:
+            if self.task_id in tasks:
+                # Add message to the list
+                tasks[self.task_id]['logs'].append(self.prefix + message)
 
 @app.route('/', methods=['GET'])
 def index():
@@ -56,15 +86,24 @@ def start_closing():
 
     task_id = str(uuid.uuid4())
     with tasks_lock:
-        tasks[task_id] = {"total": len(opportunity_ids), "completed": 0, "status": "running"}
+        # tasks[task_id] = {"total": len(opportunity_ids), "completed": 0, "status": "running"}
+        # NEW: Initialize an empty 'logs' list
+        tasks[task_id] = {
+            "total": len(opportunity_ids), 
+            "completed": 0, 
+            "status": "running",
+            "logs": [] 
+        }
 
     template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"
     signer_role = "ClientSigner"
 
     for opp_id in opportunity_ids:
         print(f"Queueing deal process for Opportunity: {opp_id}")
+        # Create a handler specific to this Opportunity
+        log_handler = AgentLogHandler(task_id, opp_id)
         # Pass the task_id to the background thread
-        thread = threading.Thread(target=start_deal_process, args=(opp_id, template_id, signer_role, task_id, tasks, tasks_lock))
+        thread = threading.Thread(target=start_deal_process, args=(opp_id, template_id, signer_role, task_id, tasks, tasks_lock, log_handler))
         thread.start()
 
     return jsonify({"status": "started", "task_id": task_id})

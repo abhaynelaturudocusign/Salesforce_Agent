@@ -2,35 +2,47 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>The SOW Agent</title>
+    <title>The Closer</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 2em; background-color: #f4f6f9; }
         h1 { color: #032d60; }
         h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; }
 
+        /* Table & Button Styles */
         table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 4px; overflow: hidden; }
         th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
         th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
         tr:hover { background-color: #f9f9f9; }
-
-        /* --- Button Styles --- */
         button, .edit-btn, .save-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
         button:hover { background-color: #005fb2; }
         .edit-btn { background-color: #fff; color: #0070d2; border: 1px solid #0070d2; }
         .edit-btn:hover { background-color: #f4f6f9; }
-
-        /* --- Link Styles (NEW) --- */
         .opp-link { color: #0070d2; text-decoration: none; font-weight: 500; }
         .opp-link:hover { text-decoration: underline; }
-
         .email-input { padding: 6px; width: 95%; border: 1px solid #ccc; border-radius: 4px; }
         .edit-mode { display: none; }
 
-        /* --- Spinner & Toast --- */
-        #spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
-        .spinner { border: 8px solid #f3f3f3; border-top: 8px solid #0070d2; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; }
+        /* --- NEW: Agent Console Styles --- */
+        #agent-console {
+            margin-top: 20px;
+            background-color: #1e1e1e;
+            color: #00ff00;
+            font-family: "Courier New", Courier, monospace;
+            padding: 15px;
+            border-radius: 6px;
+            height: 300px;
+            overflow-y: auto;
+            display: none; /* Hidden until started */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border: 1px solid #333;
+        }
+        .log-entry { margin-bottom: 5px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #333; padding-bottom: 2px;}
+        .log-timestamp { color: #888; margin-right: 10px; }
+
+        /* Spinner & Toast */
+        #spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.8); z-index: 1000; display: none; justify-content: center; align-items: center; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0070d2; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
         #toast { visibility: hidden; min-width: 300px; background-color: #04844b; color: white; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 4.5s; }
         @keyframes fadein { from {top: -50px; opacity: 0;} to {top: 20px; opacity: 1;} }
@@ -40,6 +52,7 @@
 <body>
     <h1>Auto Generate SOWs and send for signature</h1>
     <h2>Select the projects and ask the SOW agent to generate, send and attach SOWs</h2>
+    
     <form id="deal-form">
         <table>
             <thead>
@@ -61,22 +74,16 @@
                         <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>
                     </td>
                     <td><small style="color:#999">{{ opp.Id }}</small></td>
-                    
                     <td>
                         <a href="{{ sf_base_url }}/{{ opp.Id }}" target="_blank" class="opp-link">
                             {{ opp.Name }}
                         </a>
                     </td>
-
                     <td>${{ opp.Amount }}</td>
                     <td>{{ opp.PrimaryContactName }}</td>
                     <td>
-                        <div class="view-mode">
-                            <span class="email-text">{{ opp.PrimaryContactEmail }}</span>
-                        </div>
-                        <div class="edit-mode">
-                            <input type="email" class="email-input" value="{{ opp.PrimaryContactEmail }}">
-                        </div>
+                        <div class="view-mode"><span class="email-text">{{ opp.PrimaryContactEmail }}</span></div>
+                        <div class="edit-mode"><input type="email" class="email-input" value="{{ opp.PrimaryContactEmail }}"></div>
                     </td>
                     <td>{{ opp.CloseDate }}</td>
                     <td>
@@ -94,62 +101,17 @@
         <br>
         <button type="submit" formnovalidate style="padding: 10px 20px; font-size: 16px;">Start Closing Selected Deals</button>
     </form>
+
+    <div id="agent-console">
+        <div style="color: #888; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 10px;">AGENTS LIVE ACTIVITY LOG</div>
+        <div id="console-content"></div>
+    </div>
     
     <div id="spinner-overlay"><div class="spinner"></div></div>
-    <div id="toast">Envelopes are sent and waiting for signature from primary contacts.</div>
+    <div id="toast">Agent has successfully processed all envelopes!</div>
 
     <script>
-        const form = document.getElementById('deal-form');
-        const spinner = document.getElementById('spinner-overlay');
-        const toast = document.getElementById('toast');
-
-        // Logic for the main "Start Closing" button
-        form.addEventListener('submit', function(event) {
-            event.preventDefault();
-            spinner.style.display = 'flex';
-            const formData = new FormData(form);
-
-            fetch('/start-closing', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.task_id) {
-                    pollStatus(data.task_id);
-                } else {
-                    spinner.style.display = 'none';
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                spinner.style.display = 'none';
-            });
-        });
-
-        // Logic for the polling status check
-        function pollStatus(taskId) {
-            const intervalId = setInterval(() => {
-                fetch(`/task-status/${taskId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log(`Completed: ${data.completed}/${data.total}`);
-                        if (data.status === 'completed') {
-                            clearInterval(intervalId);
-                            spinner.style.display = 'none';
-                            toast.className = 'show';
-                            setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Polling Error:', error);
-                        clearInterval(intervalId);
-                        spinner.style.display = 'none';
-                    });
-            }, 3000);
-        }
-
-        // --- Logic for the inline "Edit" and "Save" buttons ---
+        // ... (Edit/Save email scripts remain same) ...
         function editEmail(editButton) {
             const row = editButton.closest('tr');
             row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
@@ -174,13 +136,84 @@
                     row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
                     row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
                 } else {
-                    alert('Error saving email: ' + data.message);
+                    alert('Error: ' + data.message);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred. Please check the console.');
             });
+        }
+
+        // --- UPDATED: Start Closing Logic ---
+        const form = document.getElementById('deal-form');
+        const spinner = document.getElementById('spinner-overlay');
+        const toast = document.getElementById('toast');
+        const consoleDiv = document.getElementById('agent-console');
+        const consoleContent = document.getElementById('console-content');
+
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                // We DON'T show the full screen spinner anymore, we show the console
+                consoleDiv.style.display = 'block'; 
+                consoleContent.innerHTML = '<div class="log-entry">Initializing Agents...</div>';
+                
+                const formData = new FormData(form);
+
+                fetch('/start-closing', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.task_id) {
+                        pollStatus(data.task_id);
+                    } else {
+                        alert('Error: ' + (data.message || 'Unknown error'));
+                    }
+                });
+            });
+        }
+
+        function pollStatus(taskId) {
+            let lastLogCount = 0;
+
+            const intervalId = setInterval(() => {
+                fetch(`/task-status/${taskId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // 1. Update Logs
+                        if (data.logs && data.logs.length > lastLogCount) {
+                            // Append only new logs
+                            const newLogs = data.logs.slice(lastLogCount);
+                            newLogs.forEach(logMsg => {
+                                const div = document.createElement('div');
+                                div.className = 'log-entry';
+                                div.innerText = logMsg;
+                                consoleContent.appendChild(div);
+                            });
+                            // Auto-scroll to bottom
+                            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                            lastLogCount = data.logs.length;
+                        }
+
+                        // 2. Check Completion
+                        if (data.status === 'completed') {
+                            clearInterval(intervalId);
+                            toast.className = 'show';
+                            setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
+                            
+                            // Optional: Add a final success message to console
+                            const div = document.createElement('div');
+                            div.className = 'log-entry';
+                            div.style.color = '#4CAF50';
+                            div.style.fontWeight = 'bold';
+                            div.innerText = "✅ ALL TASKS COMPLETED SUCCESSFULLY.";
+                            consoleContent.appendChild(div);
+                            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Polling Error:', error);
+                    });
+            }, 2000); // Poll every 2 seconds
         }
     </script>
 </body>

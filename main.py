@@ -50,7 +50,7 @@ agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_pa
 
 
 # --- AGENT WORKER FUNCTIONS ---
-def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, tasks, tasks_lock):
+def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, tasks, tasks_lock, log_handler):
     """Initiates the process by sending the contract."""
     print(f"🚀 Starting the deal process for Opportunity {opportunity_id} (Task: {task_id})...")
     
@@ -106,10 +106,16 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
     """
 
     try:
-        result = agent_executor.invoke({"input": goal})
+        # --- UPDATED LINE: Pass the callback handler ---
+        result = agent_executor.invoke(
+            {"input": goal},
+            config={"callbacks": [log_handler]} # <--- Connects the agent to the frontend
+        )
         print(f"✅ Initiation complete for Opp {opportunity_id}: {result['output']}")
     except Exception as e:
         print(f"❌ Error processing Opp {opportunity_id}: {e}")
+        # Log error to frontend too
+        log_handler.log(f"❌ ERROR: {e}")
     finally:
         # This block runs whether the agent succeeds or fails
         with tasks_lock:
