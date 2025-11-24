@@ -4,84 +4,59 @@
     <meta charset="UTF-8">
     <title>The Closer</title>
     <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background-color: #f4f6f9;
-            min-height: 100vh; 
-            margin: 0; 
-            padding: 2em; 
-            box-sizing: border-box; 
-        }
+        /* ... (All previous body, table, button styles remain exactly the same) ... */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f9; min-height: 100vh; margin: 0; padding: 2em; box-sizing: border-box; }
         h1 { color: #032d60; margin-top: 0; }
         h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; }
-
-        /* --- NEW: Container to restrict the Spinner --- */
-        .form-container {
-            position: relative; /* This is the anchor for the spinner */
-            background: white;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: hidden; /* Ensures spinner corners match rounded edges */
-        }
-
-        /* Table Styles */
+        .form-container { position: relative; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
         table { width: 100%; border-collapse: collapse; }
         th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
         th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
         tr:hover { background-color: #f9f9f9; }
-
-        /* Button Styles */
         button, .edit-btn, .save-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
         button:hover { background-color: #005fb2; }
         .edit-btn { background-color: #fff; color: #0070d2; border: 1px solid #0070d2; }
         .edit-btn:hover { background-color: #f4f6f9; }
         .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; }
         .submit-btn { padding: 10px 20px; font-size: 16px; }
-
-        /* Link & Input Styles */
         .opp-link { color: #0070d2; text-decoration: none; font-weight: 500; }
         .opp-link:hover { text-decoration: underline; }
         .email-input { padding: 6px; width: 95%; border: 1px solid #ccc; border-radius: 4px; }
         .edit-mode { display: none; }
-
-        /* --- UPDATED SPINNER STYLES --- */
-        #spinner-overlay { 
-            position: absolute; /* Changed from fixed to absolute */
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background-color: rgba(255,255,255,0.7); /* Slightly transparent white */
-            z-index: 10; 
-            display: none; 
-            justify-content: center; 
-            align-items: center; 
-            backdrop-filter: blur(2px); /* Nice blur effect on the table data */
-        }
-        .spinner { border: 4px solid #e0e0e0; border-top: 4px solid #0070d2; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* Agent Console Styles */
-        #agent-console {
-            margin-top: 25px;
-            background-color: #1e1e1e;
-            color: #00ff00;
-            font-family: "Courier New", Courier, monospace;
-            padding: 15px;
-            border-radius: 6px;
-            height: 300px;
-            overflow-y: auto;
-            display: none; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            border: 1px solid #333;
-        }
+        #agent-console { margin-top: 25px; background-color: #1e1e1e; color: #00ff00; font-family: "Courier New", Courier, monospace; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 1px solid #333; }
         .log-entry { margin-bottom: 5px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #333; padding-bottom: 2px;}
-
-        /* Toast Styles */
         #toast { visibility: hidden; min-width: 300px; background-color: #04844b; color: white; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 4.5s; }
         @keyframes fadein { from {top: -50px; opacity: 0;} to {top: 20px; opacity: 1;} }
         @keyframes fadeout { from {top: 20px; opacity: 1;} to {top: -50px; opacity: 0;} }
+
+        /* --- UPDATED SPINNER STYLES --- */
+        #spinner-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background-color: rgba(255,255,255,0.85); /* More opaque to make text readable */
+            z-index: 10; display: none; 
+            flex-direction: column; /* Stack spinner and text */
+            justify-content: center; align-items: center; 
+            backdrop-filter: blur(2px); 
+        }
+        .spinner { 
+            border: 4px solid #e0e0e0; border-top: 4px solid #0070d2; 
+            border-radius: 50%; width: 50px; height: 50px; 
+            animation: spin 1s linear infinite; 
+            margin-bottom: 15px; /* Space between spinner and text */
+        }
+        
+        /* New Status Text Style */
+        #loading-text {
+            color: #0070d2;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-weight: 500;
+            font-size: 16px;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
     </style>
 </head>
 <body>
@@ -90,7 +65,10 @@
     
     <div class="form-container">
         
-        <div id="spinner-overlay"><div class="spinner"></div></div>
+        <div id="spinner-overlay">
+            <div class="spinner"></div>
+            <div id="loading-text">Initializing...</div>
+        </div>
 
         <form id="deal-form">
             <table>
@@ -99,10 +77,10 @@
                         <th>Select</th>
                         <th>Project ID</th>
                         <th>Project Name</th>
-                        <th>Total Cost</th>
+                        <th>Amount</th>
                         <th style="text-align: center;"># Products</th>
-                        <th>Primary Contact Name</th>
-                        <th>Primary Contact Email</th>
+                        <th>Project Contact Name</th>
+                        <th>Project Contact Email</th>
                         <th>Close Date</th>
                         <th>Actions</th>
                     </tr>
@@ -114,11 +92,7 @@
                             <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>
                         </td>
                         <td><small style="color:#999">{{ opp.Id }}</small></td>
-                        <td>
-                            <a href="{{ sf_base_url }}/{{ opp.Id }}" target="_blank" class="opp-link">
-                                {{ opp.Name }}
-                            </a>
-                        </td>
+                        <td><a href="{{ sf_base_url }}/{{ opp.Id }}" target="_blank" class="opp-link">{{ opp.Name }}</a></td>
                         <td>${{ opp.Amount }}</td>
                         <td style="text-align: center;">
                             <span style="background: #eef4ff; color: #2e844a; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.9em;">
@@ -159,6 +133,7 @@
     <script>
         const form = document.getElementById('deal-form');
         const spinner = document.getElementById('spinner-overlay');
+        const loadingText = document.getElementById('loading-text'); // New element
         const toast = document.getElementById('toast');
         const consoleDiv = document.getElementById('agent-console');
         const consoleContent = document.getElementById('console-content');
@@ -167,12 +142,12 @@
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
-                // 1. Show Spinner (Only covers the table/form now)
+                // Reset UI
                 spinner.style.display = 'flex';
+                loadingText.innerText = "🚀 Initializing Agents...";
                 
-                // 2. Show Console below
                 consoleDiv.style.display = 'block'; 
-                consoleContent.innerHTML = '<div class="log-entry">🚀 Initializing Agents... please wait...</div>';
+                consoleContent.innerHTML = '<div class="log-entry">Starting process...</div>';
                 
                 const formData = new FormData(form);
 
@@ -182,13 +157,10 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    // NOTE: We do NOT hide the spinner here anymore.
-                    // We keep the table locked while the process runs.
-                    
                     if (data.task_id) {
                         pollStatus(data.task_id);
                     } else {
-                        spinner.style.display = 'none'; // Hide if immediate error
+                        spinner.style.display = 'none';
                         alert('Error: ' + (data.message || 'Unknown error'));
                     }
                 })
@@ -207,6 +179,13 @@
                 fetch(`/task-status/${taskId}`)
                     .then(response => response.json())
                     .then(data => {
+                        
+                        // 1. UPDATE STATUS TEXT (Innovative Part)
+                        if (data.current_step) {
+                            loadingText.innerText = data.current_step;
+                        }
+
+                        // 2. Update Console
                         if (data.logs && data.logs.length > lastLogCount) {
                             const newLogs = data.logs.slice(lastLogCount);
                             newLogs.forEach(logMsg => {
@@ -219,12 +198,10 @@
                             lastLogCount = data.logs.length;
                         }
 
+                        // 3. Check Completion
                         if (data.status === 'completed') {
                             clearInterval(intervalId);
-                            
-                            // NOW we hide the spinner because the job is done
-                            spinner.style.display = 'none';
-                            
+                            spinner.style.display = 'none'; // Hide spinner and text
                             toast.className = 'show';
                             setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
                             
@@ -240,9 +217,10 @@
                     .catch(error => {
                         console.error('Polling Error:', error);
                     });
-            }, 2000); 
+            }, 1500); // Faster polling for smoother status updates
         }
 
+        // ... (editEmail and saveEmail functions remain the same) ...
         function editEmail(editButton) {
             const row = editButton.closest('tr');
             row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
@@ -269,10 +247,6 @@
                 } else {
                     alert('Error saving email: ' + data.message);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred. Please check the console.');
             });
         }
     </script>

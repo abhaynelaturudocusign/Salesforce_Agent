@@ -20,31 +20,59 @@ tasks = {}
 tasks_lock = threading.Lock()
 
 # --- NEW CLASS: Agent Log Listener ---
+# 1. Update the AgentLogHandler class
 class AgentLogHandler(BaseCallbackHandler):
     def __init__(self, task_id, opp_id):
         self.task_id = task_id
-        self.prefix = f"[{opp_id}] " # Prefix logs with Opp ID so we know which deal it is
+        self.prefix = f"[{opp_id}] "
     
-    def on_chain_start(self, serialized, inputs, **kwargs):
-        self.log("🤖 Agent started. Analyzing request...")
-
-    def on_tool_start(self, serialized, input_str, **kwargs):
-        self.log(f"🛠️  Using tool: {serialized['name']}...")
-
-    def on_tool_end(self, output, **kwargs):
-        self.log(f"✅  Tool completed.")
-
-    def on_agent_action(self, action, **kwargs):
-        self.log(f"🤔 Thought: {action.log.split('Action:')[0].strip()}")
-
-    def on_chain_end(self, outputs, **kwargs):
-        self.log("🏁  Process finished.")
-
-    def log(self, message):
-        """Securely append the message to the global task list"""
+    # Helper to update the "User Friendly" status
+    def update_status(self, status_text):
         with tasks_lock:
             if self.task_id in tasks:
-                # Add message to the list
+                # We store the latest "Human Readable" status here
+                tasks[self.task_id]['current_step'] = status_text
+
+    def on_chain_start(self, serialized, inputs, **kwargs):
+        self.log("🤖 Agent started.")
+        self.update_status("🧠 Agent Initializing & Reading Instructions...")
+
+    def on_tool_start(self, serialized, input_str, **kwargs):
+        tool_name = serialized['name']
+        
+        # --- INNOVATIVE STATUS MAPPING ---
+        if "Get Opportunity Details" in tool_name:
+            friendly_status = "🔍 Fetching Project & Client Details from Salesforce..."
+        elif "Get Opportunity Line Items" in tool_name:
+            friendly_status = "📦 Analyzing Product Line Items & Costs..."
+        elif "Create Composite SOW" in tool_name:
+            friendly_status = "📝 Generating PDF Scope & Merging Legal Terms..."
+        else:
+            friendly_status = f"🛠️ Using tool: {tool_name}..."
+        
+        self.log(f"Using tool: {tool_name}")
+        self.update_status(friendly_status)
+
+    def on_tool_end(self, output, **kwargs):
+        self.log("Tool completed.")
+        self.update_status("✅ Step Complete. Reasoning next steps...")
+
+    def on_agent_action(self, action, **kwargs):
+        thought = action.log.split('Action:')[0].strip()
+        self.log(f"Thought: {thought}")
+        # Only show the thought if it's short, otherwise generic
+        if len(thought) < 50:
+            self.update_status(f"🤔 {thought}...")
+        else:
+            self.update_status("🧠 Agent is drafting content...")
+
+    def on_chain_end(self, outputs, **kwargs):
+        self.log("Process finished.")
+        self.update_status("🚀 SOW Sent! Waiting for next deal...")
+
+    def log(self, message):
+        with tasks_lock:
+            if self.task_id in tasks:
                 tasks[self.task_id]['logs'].append(self.prefix + message)
 
 @app.route('/', methods=['GET'])
@@ -92,7 +120,8 @@ def start_closing():
             "total": len(opportunity_ids), 
             "completed": 0, 
             "status": "running",
-            "logs": [] 
+            "logs": [],
+            "current_step": "🚀 Spooling up AI Agents..."
         }
 
     template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"
