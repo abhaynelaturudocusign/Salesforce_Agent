@@ -196,6 +196,19 @@ def create_composite_sow_envelope(tool_input: str) -> str:
             custom_fields=custom_fields
         )
 
+        # --- 🔍 DEBUG BLOCK: PRINT PAYLOAD ---
+        print("\n" + "="*30)
+        print("🔍 DEBUG: GENERATED DOCUSIGN PAYLOAD")
+        print("="*30)
+        try:
+            # The SDK has a helper method to show exactly what will be sent to the API
+            payload = api_client.sanitize_for_serialization(envelope_def)
+            print(json.dumps(payload, indent=2))
+        except Exception as debug_err:
+            print(f"Could not print debug JSON: {debug_err}")
+        print("="*30 + "\n")
+        # -------------------------------------
+
         # 7. Send
         envelopes_api = EnvelopesApi(api_client)
         result = envelopes_api.create_envelope(os.getenv("DOCUSIGN_API_ACCOUNT_ID"), envelope_definition=envelope_def)
