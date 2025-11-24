@@ -117,11 +117,26 @@ def docusign_webhook():
     try:
         data = json.loads(xml_data)
         
-        envelope_id = data['data']['envelopeId']
-        envelope_status = data['data']['envelopeSummary']['status']
+        # 1. Extract Envelope Details
+        # 'data' is the top level key in the JSON structure you provided earlier
+        envelope_data = data.get('data', {})
+        envelope_id = envelope_data.get('envelopeId')
+        
+        # Status might be in envelopeSummary or directly in data
+        envelope_summary = envelope_data.get('envelopeSummary', {})
+        envelope_status = envelope_summary.get('status') or envelope_data.get('status')
 
+        # 2. Extract Custom Field (Opportunity ID)
         opportunity_id = None
-        custom_fields = data['data']['envelopeSummary'].get('customFields', {}).get('textCustomFields', [])
+        
+        # Strategy A: Check directly under 'data' (Common in JSON mode)
+        custom_fields = envelope_data.get('customFields', {}).get('textCustomFields', [])
+        
+        # Strategy B: Check inside 'envelopeSummary' (Legacy mode)
+        if not custom_fields:
+            custom_fields = envelope_summary.get('customFields', {}).get('textCustomFields', [])
+
+        # Loop through fields to find the ID
         for field in custom_fields:
             if field.get('name') == 'opportunity_id':
                 opportunity_id = field.get('value')
@@ -131,9 +146,10 @@ def docusign_webhook():
         
         if envelope_status == 'completed' and opportunity_id:
             print(f"🚀 Triggering agent to finalize deal for Opp ID {opportunity_id}...")
-            # Pass both IDs to the finalize function
             thread = threading.Thread(target=finalize_deal, args=(envelope_id, opportunity_id))
             thread.start()
+        elif not opportunity_id:
+            print("⚠️ Warning: Opportunity ID not found in webhook payload.")
             
     except Exception as e:
         print(f"❌ Error processing webhook: {e}")
