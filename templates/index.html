@@ -192,6 +192,14 @@
                     .then(response => response.json())
                     .then(data => {
                         
+                        // --- DEBUG LOG ---
+                        // Open Browser Console (F12) to see this
+                        console.log("Poll Data:", data); 
+                        if (data.results) {
+                            console.log("Current Results:", data.results);
+                        }
+                        // -----------------
+
                         if (data.current_step) loadingText.innerText = data.current_step;
 
                         // Checklist Update
