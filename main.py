@@ -58,20 +58,19 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
     Act as a Solution Architect for Opportunity '{opportunity_id}'.
     
     1. GATHER DATA:
-       - Get Opportunity details...
+       - Get Opportunity details (Contact Name, Contact Email).
        - Get Opportunity Line Items.
     
-    2. CALCULATE & DRAFT:
-       - Calculate the 'total_fixed_fee' by summing the TotalPrice of all line items. 
-       - IMPORTANT: Format it as a simple number (e.g. "50000.00"). Do NOT include the "$" symbol or commas.
-       - Summarize the Line Items into 'scope_items'.
-       - Format the Line Items into 'milestones'.
+    2. PREPARE CONTENT:
+       - Calculate 'total_fixed_fee' (Sum of line items). Format as number (e.g. "5000.00").
        - Draft 'background_text' and 'objectives_text'.
+       - Transform Line Items into 'scope_items' and 'milestones'.
     
     3. EXECUTE:
        Use the 'Create Composite SOW' tool.
        
-       Format the input exactly like this:
+       IMPORTANT: You must format the 'pdf_data' JSON exactly matching this structure:
+       
        {{
            "client_name": "...",
            "client_email": "...",
@@ -79,8 +78,28 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
            "static_legal_template_id": "{template_id}",
            "signer_role_name": "{signer_role_name}",
            "opportunity_id": "{opportunity_id}",
-           "total_fixed_fee": "...",  <-- NEW FIELD
-           "pdf_data": {{ ... }}
+           "total_fixed_fee": "...",
+           "pdf_data": {{
+               "background_text": "2 sentences on context...",
+               "objectives_text": "3 bullet points...",
+               "scope_items": [
+                   {{
+                       "title": "Product Name or Category", 
+                       "description": "Detailed description of work for this item."
+                   }},
+                   {{
+                       "title": "Another Item", 
+                       "description": "Description..."
+                   }}
+               ],
+               "milestones": [
+                   {{
+                       "name": "Milestone 1", 
+                       "date": "YYYY-MM-DD", 
+                       "amount": "$1,000.00"
+                   }}
+               ]
+           }}
        }}
        
     Report the final Envelope ID.
