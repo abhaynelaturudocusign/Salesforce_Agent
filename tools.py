@@ -121,15 +121,15 @@ def create_composite_sow_envelope(tool_input: str) -> str:
             dynamic_pdf_bytes = file.read()
         dynamic_doc_b64 = base64.b64encode(dynamic_pdf_bytes).decode("ascii")
 
-        # Custom Fields
-        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
-        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
-
         # ---------------------------------------------------------
         # PART A: COMPOSITE TEMPLATE 1 - The Generated PDF
         # ---------------------------------------------------------
         # Purpose: Just add the PDF document and ensure the signer can see it.
         
+        # Custom Fields
+        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
+        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
+
         doc_pdf = Document(
             document_base64=dynamic_doc_b64,
             name="Scope of Work",
@@ -149,7 +149,8 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         inline_pdf = InlineTemplate(
             sequence="1",
             documents=[doc_pdf],
-            recipients=Recipients(signers=[signer_pdf]) 
+            recipients=Recipients(signers=[signer_pdf]),
+            custom_fields=custom_fields 
         )
 
         comp_template_pdf = CompositeTemplate(
@@ -207,8 +208,8 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         envelope_def = EnvelopeDefinition(
             status="sent",
             email_subject=f"SOW for {project_name}",
-            composite_templates=[comp_template_pdf, comp_template_legal], # Stacked List
-            custom_fields=custom_fields
+            composite_templates=[comp_template_pdf, comp_template_legal] # Stacked List
+            
         )
 
         # --- DEBUG PRINT ---
