@@ -13,10 +13,25 @@
         th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
         th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
         tr:hover { background-color: #f9f9f9; }
-        button, .edit-btn, .save-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
+        button, .edit-btn, .save-btn,  .view-sow-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
         button:hover { background-color: #005fb2; }
         .edit-btn { background-color: #fff; color: #0070d2; border: 1px solid #0070d2; }
         .edit-btn:hover { background-color: #f4f6f9; }
+        /* NEW: View SOW Button Style */
+
+        .view-sow-btn { 
+
+            background-color: #ff9800; /* Orange to stand out */
+
+            text-decoration: none; 
+
+            display: none; /* Hidden by default */
+
+            margin-left: 5px;
+
+        }
+
+        .view-sow-btn:hover { background-color: #e68900; }
         .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; }
         .submit-btn { padding: 10px 20px; font-size: 16px; }
         .opp-link { color: #0070d2; text-decoration: none; font-weight: 500; }
@@ -108,7 +123,7 @@
                 </thead>
                 <tbody>
                     {% for opp in opportunities %}
-                    <tr data-contact-id="{{ opp.PrimaryContactId }}">
+                    <tr id="row-{{ opp.Id }}" data-contact-id="{{ opp.PrimaryContactId }}">
                         <td>
                             <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>
                         </td>
@@ -129,6 +144,7 @@
                         <td>
                             <div class="view-mode">
                                  <button type="button" class="edit-btn" onclick="editEmail(this)" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>Edit</button>
+                                 <a href="#" class="view-sow-btn" target="_blank">View SOW</a>
                             </div>
                             <div class="edit-mode">
                                 <button type="button" class="save-btn" onclick="saveEmail(this)">Save</button>
@@ -166,7 +182,7 @@
                 // Reset UI
                 spinner.style.display = 'flex';
                 loadingText.innerText = "🚀 Initializing Agents...";
-                
+                document.getElementById('completed-list').innerHTML = '';
                 consoleDiv.style.display = 'block'; 
                 consoleContent.innerHTML = '<div class="log-entry">Starting process...</div>';
                 
@@ -198,6 +214,8 @@
             // Keep track of what we have already displayed to avoid flickering
             let displayedDeals = new Set();
 
+            let processedResults = new Set();
+
             const intervalId = setInterval(() => {
                 fetch(`/task-status/${taskId}`)
                     .then(response => response.json())
@@ -220,6 +238,40 @@
                                     displayedDeals.add(dealName);
                                 }
                             });
+                        }
+
+                        // --- NEW LOGIC: Show "View SOW" Buttons ---
+
+                        if (data.results) {
+
+                            for (const [oppId, envelopeId] of Object.entries(data.results)) {
+
+                                if (!processedResults.has(oppId)) {
+
+                                    const row = document.getElementById('row-' + oppId);
+
+                                    if (row) {
+
+                                        const btn = row.querySelector('.view-sow-btn');
+
+                                        if (btn) {
+
+                                            // Construct DocuSign URL
+
+                                            btn.href = `https://apps-d.docusign.com/send/documents/details/${envelopeId}`;
+
+                                            btn.style.display = 'inline-block'; // Show button
+
+                                        }
+
+                                    }
+
+                                    processedResults.add(oppId);
+
+                                }
+
+                            }
+
                         }
 
                         // 3. Update Console

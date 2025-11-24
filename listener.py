@@ -1,4 +1,5 @@
 # listener.py
+import re # <--- ADD THIS AT THE TOP
 from main import start_deal_process
 import os
 import json
@@ -33,6 +34,12 @@ class AgentLogHandler(BaseCallbackHandler):
         with tasks_lock:
             if self.task_id in tasks:
                 tasks[self.task_id]['current_step'] = status_text
+
+    def save_envelope_id(self, envelope_id):
+        with tasks_lock:
+            if self.task_id in tasks:
+                # Map the Opportunity ID to the Envelope ID
+                tasks[self.task_id]['results'][self.opp_id] = envelope_id
 
     def mark_deal_complete(self):
         """Adds the account name to the finished list for the UI"""
@@ -81,7 +88,13 @@ class AgentLogHandler(BaseCallbackHandler):
         self.log(f"Using tool: {tool_name}")
 
     def on_tool_end(self, output, **kwargs):
-        pass
+        # Intercept the output from the DocuSign tool
+        if "Envelope ID:" in output:
+            # Extract the ID using Regex
+            match = re.search(r"Envelope ID: ([a-fA-F0-9\-]+)", output)
+            if match:
+                env_id = match.group(1)
+                self.save_envelope_id(env_id)
 
     def on_agent_action(self, action, **kwargs):
         thought = action.log.split('Action:')[0].replace("Thought:", "").strip()
@@ -145,7 +158,8 @@ def start_closing():
             "status": "running",
             "logs": [],
             "current_step": "🚀 Spooling up AI Agents...",
-            "finished_deals": [] # <--- NEW LIST TO TRACK COMPLETIONS
+            "finished_deals": [], # <--- NEW LIST TO TRACK COMPLETIONS
+            "results": {}
         }
 
     template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"

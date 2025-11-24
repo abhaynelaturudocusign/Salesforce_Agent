@@ -55,16 +55,54 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
     print(f"🚀 Starting the deal process for Opportunity {opportunity_id} (Task: {task_id})...")
     
     goal = f"""
+
     Act as a Solution Architect for Opportunity '{opportunity_id}'.
+
     
+
     1. GATHER DATA:
+
        - Get Opportunity details (Contact Name, Contact Email).
-       - Get Opportunity Line Items.
+
+       - Get Opportunity Line Items (Products, Prices, Dates).
+
     
+
     2. PREPARE CONTENT:
-       - Calculate 'total_fixed_fee' (Sum of line items). Format as number (e.g. "5000.00").
-       - Draft 'background_text' and 'objectives_text'.
-       - Transform Line Items into 'scope_items' and 'milestones'.
+
+       - Calculate 'total_fixed_fee' by summing the TotalPrice of all line items. Format as "5000.00" (no symbols).
+
+       - Draft 'background_text' and 'objectives_text' based on the products.
+
+       
+
+       - GENERATE SCOPE ITEMS:
+
+         Create a list of scope items, one for each product line item.
+
+         
+
+       - GENERATE MILESTONES (CRITICAL RULE):
+
+         Do NOT summarize the milestones into a single payment.
+
+         You MUST create a specific Milestone entry for EVERY SINGLE Line Item found.
+
+         
+
+         Logic:
+
+         - If you found 3 line items in step 1, your 'milestones' list MUST contain 3 items.
+
+         - For each item:
+
+             - 'name': Use the Product Name (e.g. "GenWatt 100kW").
+
+             - 'description': Brief description of delivery.
+
+             - 'date': Use the ServiceDate. If null, use "Upon Delivery".
+
+             - 'amount': Use the specific TotalPrice of THAT item (e.g. "$30,000").
     
     3. EXECUTE:
        Use the 'Create Composite SOW' tool.
