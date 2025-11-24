@@ -119,6 +119,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         # 1. Generate the Dynamic PDF
         pdf_data['client_name'] = client_name
         pdf_data['project_name'] = project_name
+        pdf_data['account_name'] = account_name
         dynamic_pdf_path = generate_scope_and_milestones_pdf(pdf_data)
         
         with open(dynamic_pdf_path, "rb") as file:

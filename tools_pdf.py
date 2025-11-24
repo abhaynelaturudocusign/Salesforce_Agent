@@ -1,9 +1,9 @@
 # tools_pdf.py
 import os
+import re
 from jinja2 import Environment, BaseLoader
 from weasyprint import HTML, CSS
 
-# Static text for Section 3 to keep the code clean
 SECTION_3_TEXT = """
 <p><strong>(a) Key Attributes</strong></p>
 <ul>
@@ -19,42 +19,69 @@ SECTION_3_TEXT = """
 
 def generate_scope_and_milestones_pdf(data_dictionary):
     """
-    Generates the 'Front Half' of the SOW (Sections 1-5 & 9), 
-    ready to be merged with the 'Back Half' (Legal T&Cs).
-    Input: A dictionary containing project_name, client_name, milestones, etc.
+    Generates the SOW PDF.
     """
     
-    # 1. HTML Template (Sections 1, 2, 3, 4, 5, 9)
+    # --- HELPER: Calculate Total ---
+    # We calculate the total here in Python to ensure accuracy
+    total_val = 0.0
+    milestones = data_dictionary.get('milestones', [])
+    for m in milestones:
+        try:
+            # Remove '$' and ',' to turn "$1,500.00" into float(1500.00)
+            clean_amount = re.sub(r'[^\d.]', '', str(m.get('amount', '0')))
+            total_val += float(clean_amount)
+        except: pass
+    
+    # Format total back to string
+    total_formatted = f"${total_val:,.2f}"
+    
+    # Pass total to template
+    data_dictionary['calculated_total'] = total_formatted
+
+    # 1. HTML Template
     html_template = """
     <!DOCTYPE html>
     <html>
     <head>
         <style>
             body { font-family: 'Helvetica', sans-serif; font-size: 10pt; line-height: 1.4; padding: 40px; }
-            .header-block { text-align: center; font-weight: bold; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            
+            /* --- UPDATED HEADER STYLE (Goal 2) --- */
+            .header-block { 
+                text-align: center; 
+                font-weight: bold; 
+                font-size: 24pt; /* Increased size (like H1) */
+                margin-bottom: 30px; 
+                border-bottom: 2px solid #333; 
+                padding-bottom: 15px; 
+                text-transform: uppercase;
+            }
+            
             h2 { font-size: 12pt; font-weight: bold; margin-top: 20px; border-bottom: 1px solid #ccc; text-transform: uppercase; }
             .label { font-weight: bold; width: 150px; display: inline-block; }
             .section-content { margin-bottom: 15px; }
+            .page-break { page-break-before: always; }
             
             /* Table Styling */
             table { width: 100%; border-collapse: collapse; margin-top: 10px; }
             th, td { border: 1px solid #000; padding: 6px; vertical-align: top; }
             th { background-color: #f2f2f2; }
             
-            /* Signature Anchor - Invisible text for DocuSign */
+            /* Total Row Style */
+            .total-row td { font-weight: bold; background-color: #eef; }
+            
             .hidden-anchor { color: #ffffff; font-size: 1px; }
-            .page-break { page-break-before: always; }
         </style>
     </head>
     <body>
 
         <div class="header-block">
-            WORK ORDER FOR: {{ project_name }}<br/>
-            {{ client_name }} AND {{ consultant_name }}
-        </div>
+            WORK ORDER FOR:<br/>
+            {{ account_name }} </div>
 
         <h2>1. Project Basics</h2>
-        <div><span class="label">Client:</span> {{ client_name }}</div>
+        <div><span class="label">Client Contact:</span> {{ client_name }}</div>
         <div><span class="label">Start Date:</span> {{ start_date }}</div>
         <div><span class="label">End Date:</span> {{ end_date }}</div>
 
@@ -78,11 +105,11 @@ def generate_scope_and_milestones_pdf(data_dictionary):
             </ul>
         </div>
 
-        <h2 class="page-break"> 5. Milestone Obligations</h2>
+        <h2 class="page-break">9. Milestone Obligations</h2>
         <table>
             <thead>
                 <tr>
-                    <th>Milestone</th>
+                    <th>Milestone / Product</th>
                     <th>Description</th>
                     <th>Date</th>
                     <th>Amount</th>
@@ -97,32 +124,38 @@ def generate_scope_and_milestones_pdf(data_dictionary):
                     <td>{{ m.amount }}</td>
                 </tr>
                 {% endfor %}
+                <tr class="total-row">
+                    <td colspan="3" style="text-align: right;">TOTAL:</td>
+                    <td>{{ calculated_total }}</td>
+                </tr>
             </tbody>
         </table>
 
         <div style="margin-top:50px;">
-            <span class="hidden-anchor">\\SIGNATURES\\</span>
+            <span class="hidden-anchor">\\s1\\</span>
         </div>
 
     </body>
     </html>
     """
 
-    # 2. Render HTML
     rtemplate = Environment(loader=BaseLoader()).from_string(html_template)
     
-    # Inject static content
     data_dictionary['section_3_static_content'] = SECTION_3_TEXT
-    data_dictionary['consultant_name'] = "My Company Inc." # Or get from env
     
+    # Ensure account_name defaults if missing
+    if 'account_name' not in data_dictionary:
+        data_dictionary['account_name'] = data_dictionary.get('client_name', 'Client')
+
     html_content = rtemplate.render(data_dictionary)
     
-    # 3. Save as PDF
-    # Create a 'generated_docs' folder if it doesn't exist
     if not os.path.exists('generated_docs'):
         os.makedirs('generated_docs')
 
-    filename = f"generated_docs/SOW_{data_dictionary['project_name'].replace(' ', '_')}.pdf"
+    # Sanitize filename
+    safe_name = "".join(x for x in data_dictionary['project_name'] if x.isalnum() or x in "._- ")
+    filename = f"generated_docs/SOW_{safe_name.replace(' ', '_')}.pdf"
+    
     HTML(string=html_content).write_pdf(filename)
     
     return filename
