@@ -4,49 +4,72 @@
     <meta charset="UTF-8">
     <title>The Closer</title>
     <style>
-        /* --- UPDATED GLOBAL STYLES FOR FULL HEIGHT --- */
-        html {
-            height: 100%;
-        }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             background-color: #f4f6f9;
-            /* Use min-height to fill screen, padding instead of margin to prevent overflow */
             min-height: 100vh; 
             margin: 0; 
             padding: 2em; 
             box-sizing: border-box; 
         }
-
         h1 { color: #032d60; margin-top: 0; }
         h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; }
 
-        /* Table & Button Styles */
-        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 4px; overflow: hidden; }
+        /* --- NEW: Container to restrict the Spinner --- */
+        .form-container {
+            position: relative; /* This is the anchor for the spinner */
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden; /* Ensures spinner corners match rounded edges */
+        }
+
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; }
         th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
         th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
         tr:hover { background-color: #f9f9f9; }
-        
+
+        /* Button Styles */
         button, .edit-btn, .save-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
         button:hover { background-color: #005fb2; }
         .edit-btn { background-color: #fff; color: #0070d2; border: 1px solid #0070d2; }
         .edit-btn:hover { background-color: #f4f6f9; }
-        
+        .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; }
+        .submit-btn { padding: 10px 20px; font-size: 16px; }
+
+        /* Link & Input Styles */
         .opp-link { color: #0070d2; text-decoration: none; font-weight: 500; }
         .opp-link:hover { text-decoration: underline; }
         .email-input { padding: 6px; width: 95%; border: 1px solid #ccc; border-radius: 4px; }
         .edit-mode { display: none; }
 
+        /* --- UPDATED SPINNER STYLES --- */
+        #spinner-overlay { 
+            position: absolute; /* Changed from fixed to absolute */
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(255,255,255,0.7); /* Slightly transparent white */
+            z-index: 10; 
+            display: none; 
+            justify-content: center; 
+            align-items: center; 
+            backdrop-filter: blur(2px); /* Nice blur effect on the table data */
+        }
+        .spinner { border: 4px solid #e0e0e0; border-top: 4px solid #0070d2; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         /* Agent Console Styles */
         #agent-console {
-            margin-top: 20px;
+            margin-top: 25px;
             background-color: #1e1e1e;
             color: #00ff00;
             font-family: "Courier New", Courier, monospace;
             padding: 15px;
             border-radius: 6px;
-            /* Make console fill remaining space nicely if needed, or fixed height */
-            height: 300px; 
+            height: 300px;
             overflow-y: auto;
             display: none; 
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -54,10 +77,7 @@
         }
         .log-entry { margin-bottom: 5px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #333; padding-bottom: 2px;}
 
-        /* Spinner & Toast */
-        #spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.8); z-index: 1000; display: none; justify-content: center; align-items: center; }
-        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #0070d2; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Toast Styles */
         #toast { visibility: hidden; min-width: 300px; background-color: #04844b; color: white; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 4.5s; }
         @keyframes fadein { from {top: -50px; opacity: 0;} to {top: 20px; opacity: 1;} }
@@ -68,95 +88,75 @@
     <h1>Auto Generate SOWs and send for signature</h1>
     <h2>Select the projects and ask the SOW agent to generate, send and attach SOWs</h2>
     
-    <form id="deal-form">
-        <table>
-            <thead>
-                <tr>
-                    <th>Select</th>
-                    <th>Opportunity ID</th>
-                    <th>Opportunity Name</th>
-                    <th>Amount</th>
-                    <th>Primary Contact Name</th>
-                    <th>Primary Contact Email</th>
-                    <th>Close Date</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for opp in opportunities %}
-                <tr data-contact-id="{{ opp.PrimaryContactId }}">
-                    <td>
-                        <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>
-                    </td>
-                    <td><small style="color:#999">{{ opp.Id }}</small></td>
-                    <td>
-                        <a href="{{ sf_base_url }}/{{ opp.Id }}" target="_blank" class="opp-link">
-                            {{ opp.Name }}
-                        </a>
-                    </td>
-                    <td>${{ opp.Amount }}</td>
-                    <td>{{ opp.PrimaryContactName }}</td>
-                    <td>
-                        <div class="view-mode"><span class="email-text">{{ opp.PrimaryContactEmail }}</span></div>
-                        <div class="edit-mode"><input type="email" class="email-input" value="{{ opp.PrimaryContactEmail }}"></div>
-                    </td>
-                    <td>{{ opp.CloseDate }}</td>
-                    <td>
-                        <div class="view-mode">
-                             <button type="button" class="edit-btn" onclick="editEmail(this)" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>Edit</button>
-                        </div>
-                        <div class="edit-mode">
-                            <button type="button" class="save-btn" onclick="saveEmail(this)">Save</button>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <br>
-        <button type="submit" formnovalidate style="padding: 10px 20px; font-size: 16px;">Start Closing Selected Deals</button>
-    </form>
+    <div class="form-container">
+        
+        <div id="spinner-overlay"><div class="spinner"></div></div>
+
+        <form id="deal-form">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Select</th>
+                        <th>Opportunity ID</th>
+                        <th>Opportunity Name</th>
+                        <th>Amount</th>
+                        <th style="text-align: center;"># Products</th>
+                        <th>Primary Contact Name</th>
+                        <th>Primary Contact Email</th>
+                        <th>Close Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for opp in opportunities %}
+                    <tr data-contact-id="{{ opp.PrimaryContactId }}">
+                        <td>
+                            <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>
+                        </td>
+                        <td><small style="color:#999">{{ opp.Id }}</small></td>
+                        <td>
+                            <a href="{{ sf_base_url }}/{{ opp.Id }}" target="_blank" class="opp-link">
+                                {{ opp.Name }}
+                            </a>
+                        </td>
+                        <td>${{ opp.Amount }}</td>
+                        <td style="text-align: center;">
+                            <span style="background: #eef4ff; color: #2e844a; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.9em;">
+                                {{ opp.ProductCount }}
+                            </span>
+                        </td>
+                        <td>{{ opp.PrimaryContactName }}</td>
+                        <td>
+                            <div class="view-mode"><span class="email-text">{{ opp.PrimaryContactEmail }}</span></div>
+                            <div class="edit-mode"><input type="email" class="email-input" value="{{ opp.PrimaryContactEmail }}"></div>
+                        </td>
+                        <td>{{ opp.CloseDate }}</td>
+                        <td>
+                            <div class="view-mode">
+                                 <button type="button" class="edit-btn" onclick="editEmail(this)" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>Edit</button>
+                            </div>
+                            <div class="edit-mode">
+                                <button type="button" class="save-btn" onclick="saveEmail(this)">Save</button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="submit-btn-container">
+                <button type="submit" formnovalidate class="submit-btn">Start Closing Selected Deals</button>
+            </div>
+        </form>
+    </div>
 
     <div id="agent-console">
         <div style="color: #888; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 10px;">AGENTS LIVE ACTIVITY LOG</div>
         <div id="console-content"></div>
     </div>
     
-    <div id="spinner-overlay"><div class="spinner"></div></div>
     <div id="toast">Agent has successfully processed all envelopes!</div>
 
     <script>
-        // ... (Edit/Save email scripts remain same) ...
-        function editEmail(editButton) {
-            const row = editButton.closest('tr');
-            row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
-            row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'block');
-        }
-
-        function saveEmail(saveButton) {
-            const row = saveButton.closest('tr');
-            const contactId = row.dataset.contactId;
-            const emailInput = row.querySelector('.email-input');
-            const newEmail = emailInput.value;
-
-            fetch('/update-contact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contact_id: contactId, new_email: newEmail })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    row.querySelector('.email-text').textContent = newEmail;
-                    row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
-                    row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            });
-        }
-
-        // --- Start Closing Logic ---
         const form = document.getElementById('deal-form');
         const spinner = document.getElementById('spinner-overlay');
         const toast = document.getElementById('toast');
@@ -166,8 +166,13 @@
         if (form) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
+                
+                // 1. Show Spinner (Only covers the table/form now)
+                spinner.style.display = 'flex';
+                
+                // 2. Show Console below
                 consoleDiv.style.display = 'block'; 
-                consoleContent.innerHTML = '<div class="log-entry">Initializing Agents...</div>';
+                consoleContent.innerHTML = '<div class="log-entry">🚀 Initializing Agents... please wait...</div>';
                 
                 const formData = new FormData(form);
 
@@ -177,11 +182,20 @@
                 })
                 .then(response => response.json())
                 .then(data => {
+                    // NOTE: We do NOT hide the spinner here anymore.
+                    // We keep the table locked while the process runs.
+                    
                     if (data.task_id) {
                         pollStatus(data.task_id);
                     } else {
+                        spinner.style.display = 'none'; // Hide if immediate error
                         alert('Error: ' + (data.message || 'Unknown error'));
                     }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    spinner.style.display = 'none';
+                    alert("Network Error. Check console.");
                 });
             });
         }
@@ -207,6 +221,10 @@
 
                         if (data.status === 'completed') {
                             clearInterval(intervalId);
+                            
+                            // NOW we hide the spinner because the job is done
+                            spinner.style.display = 'none';
+                            
                             toast.className = 'show';
                             setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
                             
@@ -223,6 +241,39 @@
                         console.error('Polling Error:', error);
                     });
             }, 2000); 
+        }
+
+        function editEmail(editButton) {
+            const row = editButton.closest('tr');
+            row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
+            row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'block');
+        }
+
+        function saveEmail(saveButton) {
+            const row = saveButton.closest('tr');
+            const contactId = row.dataset.contactId;
+            const emailInput = row.querySelector('.email-input');
+            const newEmail = emailInput.value;
+
+            fetch('/update-contact', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contact_id: contactId, new_email: newEmail })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    row.querySelector('.email-text').textContent = newEmail;
+                    row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
+                    row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
+                } else {
+                    alert('Error saving email: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please check the console.');
+            });
         }
     </script>
 </body>
