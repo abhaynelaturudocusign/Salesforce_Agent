@@ -121,6 +121,10 @@ def create_composite_sow_envelope(tool_input: str) -> str:
             dynamic_pdf_bytes = file.read()
         dynamic_doc_b64 = base64.b64encode(dynamic_pdf_bytes).decode("ascii")
 
+        # Custom Fields
+        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
+        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
+
         # ---------------------------------------------------------
         # PART A: COMPOSITE TEMPLATE 1 - The Generated PDF
         # ---------------------------------------------------------
@@ -197,9 +201,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         # PART C: BUILD ENVELOPE
         # ---------------------------------------------------------
         
-        # Custom Fields
-        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
-        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
+        
 
         # Stack them: PDF first, Legal second
         envelope_def = EnvelopeDefinition(
