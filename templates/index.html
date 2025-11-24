@@ -4,8 +4,21 @@
     <meta charset="UTF-8">
     <title>The Closer</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 2em; background-color: #f4f6f9; }
-        h1 { color: #032d60; }
+        /* --- UPDATED GLOBAL STYLES FOR FULL HEIGHT --- */
+        html {
+            height: 100%;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #f4f6f9;
+            /* Use min-height to fill screen, padding instead of margin to prevent overflow */
+            min-height: 100vh; 
+            margin: 0; 
+            padding: 2em; 
+            box-sizing: border-box; 
+        }
+
+        h1 { color: #032d60; margin-top: 0; }
         h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; }
 
         /* Table & Button Styles */
@@ -13,16 +26,18 @@
         th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
         th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
         tr:hover { background-color: #f9f9f9; }
+        
         button, .edit-btn, .save-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
         button:hover { background-color: #005fb2; }
         .edit-btn { background-color: #fff; color: #0070d2; border: 1px solid #0070d2; }
         .edit-btn:hover { background-color: #f4f6f9; }
+        
         .opp-link { color: #0070d2; text-decoration: none; font-weight: 500; }
         .opp-link:hover { text-decoration: underline; }
         .email-input { padding: 6px; width: 95%; border: 1px solid #ccc; border-radius: 4px; }
         .edit-mode { display: none; }
 
-        /* --- NEW: Agent Console Styles --- */
+        /* Agent Console Styles */
         #agent-console {
             margin-top: 20px;
             background-color: #1e1e1e;
@@ -30,14 +45,14 @@
             font-family: "Courier New", Courier, monospace;
             padding: 15px;
             border-radius: 6px;
-            height: 300px;
+            /* Make console fill remaining space nicely if needed, or fixed height */
+            height: 300px; 
             overflow-y: auto;
-            display: none; /* Hidden until started */
+            display: none; 
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             border: 1px solid #333;
         }
         .log-entry { margin-bottom: 5px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #333; padding-bottom: 2px;}
-        .log-timestamp { color: #888; margin-right: 10px; }
 
         /* Spinner & Toast */
         #spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.8); z-index: 1000; display: none; justify-content: center; align-items: center; }
@@ -141,7 +156,7 @@
             });
         }
 
-        // --- UPDATED: Start Closing Logic ---
+        // --- Start Closing Logic ---
         const form = document.getElementById('deal-form');
         const spinner = document.getElementById('spinner-overlay');
         const toast = document.getElementById('toast');
@@ -151,7 +166,6 @@
         if (form) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
-                // We DON'T show the full screen spinner anymore, we show the console
                 consoleDiv.style.display = 'block'; 
                 consoleContent.innerHTML = '<div class="log-entry">Initializing Agents...</div>';
                 
@@ -179,9 +193,7 @@
                 fetch(`/task-status/${taskId}`)
                     .then(response => response.json())
                     .then(data => {
-                        // 1. Update Logs
                         if (data.logs && data.logs.length > lastLogCount) {
-                            // Append only new logs
                             const newLogs = data.logs.slice(lastLogCount);
                             newLogs.forEach(logMsg => {
                                 const div = document.createElement('div');
@@ -189,18 +201,15 @@
                                 div.innerText = logMsg;
                                 consoleContent.appendChild(div);
                             });
-                            // Auto-scroll to bottom
                             consoleDiv.scrollTop = consoleDiv.scrollHeight;
                             lastLogCount = data.logs.length;
                         }
 
-                        // 2. Check Completion
                         if (data.status === 'completed') {
                             clearInterval(intervalId);
                             toast.className = 'show';
                             setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
                             
-                            // Optional: Add a final success message to console
                             const div = document.createElement('div');
                             div.className = 'log-entry';
                             div.style.color = '#4CAF50';
@@ -213,7 +222,7 @@
                     .catch(error => {
                         console.error('Polling Error:', error);
                     });
-            }, 2000); // Poll every 2 seconds
+            }, 2000); 
         }
     </script>
 </body>
