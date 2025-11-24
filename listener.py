@@ -25,55 +25,71 @@ class AgentLogHandler(BaseCallbackHandler):
     def __init__(self, task_id, opp_id):
         self.task_id = task_id
         self.prefix = f"[{opp_id}] "
+        # Track the last message to prevent duplicates
+        self.last_message = ""
     
-    # Helper to update the "User Friendly" status
     def update_status(self, status_text):
+        """Update the 'friendly' status text under the spinner."""
         with tasks_lock:
             if self.task_id in tasks:
-                # We store the latest "Human Readable" status here
                 tasks[self.task_id]['current_step'] = status_text
 
+    def log(self, message):
+        """Append log only if it's new (debounce duplicates)."""
+        if message == self.last_message:
+            return
+        
+        self.last_message = message
+        with tasks_lock:
+            if self.task_id in tasks:
+                tasks[self.task_id]['logs'].append(self.prefix + message)
+
+    # --- EVENT HANDLERS ---
+
     def on_chain_start(self, serialized, inputs, **kwargs):
-        self.log("🤖 Agent started.")
-        self.update_status("🧠 Agent Initializing & Reading Instructions...")
+        # Filter out internal chains (like LLMChain), only show the main AgentExecutor
+        if serialized.get("name") == "AgentExecutor":
+            self.log("🤖 Agent activated. Analyzing Opportunity...")
+            self.update_status("🧠 Agent Initializing...")
 
     def on_tool_start(self, serialized, input_str, **kwargs):
         tool_name = serialized['name']
         
-        # --- INNOVATIVE STATUS MAPPING ---
+        # Map tools to friendly status messages
         if "Get Opportunity Details" in tool_name:
-            friendly_status = "🔍 Fetching Project & Client Details from Salesforce..."
+            friendly_status = "🔍 Reading Project Data from Salesforce..."
         elif "Get Opportunity Line Items" in tool_name:
-            friendly_status = "📦 Analyzing Product Line Items & Costs..."
+            friendly_status = "📦 Analyzing Products & Pricing..."
         elif "Create Composite SOW" in tool_name:
-            friendly_status = "📝 Generating PDF Scope & Merging Legal Terms..."
+            friendly_status = "📝 Generating PDF & Drafting Contract..."
         else:
-            friendly_status = f"🛠️ Using tool: {tool_name}..."
+            friendly_status = f"🛠️ Executing: {tool_name}..."
         
         self.log(f"Using tool: {tool_name}")
         self.update_status(friendly_status)
 
     def on_tool_end(self, output, **kwargs):
-        self.log("Tool completed.")
-        self.update_status("✅ Step Complete. Reasoning next steps...")
+        # We don't need to log every tool end, it's noise.
+        pass
 
     def on_agent_action(self, action, **kwargs):
-        thought = action.log.split('Action:')[0].strip()
-        self.log(f"Thought: {thought}")
-        # Only show the thought if it's short, otherwise generic
-        if len(thought) < 50:
-            self.update_status(f"🤔 {thought}...")
-        else:
-            self.update_status("🧠 Agent is drafting content...")
+        # Clean up the thought text
+        raw_log = action.log
+        # Extract the "Thought" part before the "Action" part
+        thought = raw_log.split('Action:')[0].replace("Thought:", "").strip()
+        
+        if thought:
+            self.log(f"🤔 Thought: {thought}")
+            # Update status for long drafting phases
+            if "draft" in thought.lower() or "prepare" in thought.lower():
+                self.update_status("✍️ Agent is drafting the SOW content...")
 
     def on_chain_end(self, outputs, **kwargs):
-        self.log("Process finished.")
-        self.update_status("🚀 SOW Sent! Waiting for next deal...")
-
-    def log(self, message):
-        with tasks_lock:
-            if self.task_id in tasks:
-                tasks[self.task_id]['logs'].append(self.prefix + message)
+        # Only log completion if it's the main AgentExecutor finishing
+        # We check 'output' key which is typical for the final result
+        if 'output' in outputs:
+            self.log("🏁 Task process finished.")
+            self.update_status("✅ SOW Sent! Waiting for signature...")
 
 @app.route('/', methods=['GET'])
 def index():
