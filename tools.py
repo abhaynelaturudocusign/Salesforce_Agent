@@ -101,11 +101,12 @@ def create_composite_sow_envelope(tool_input: str) -> str:
     try:
 
         # Extract PDF Data with Defaults to prevent "Empty" PDF
+        args = json.loads(tool_input)
         pdf_data = args.get('pdf_data', {})
         pdf_data.setdefault('scope_items', [{'title': 'TBD', 'description': 'No scope provided by agent.'}])
         pdf_data.setdefault('milestones', [{'name': 'TBD', 'date': 'TBD', 'amount': 'TBD'}])
 
-        args = json.loads(tool_input)
+        
         client_name = args.get('client_name')
         client_email = args.get('client_email')
         project_name = args.get('project_name')
