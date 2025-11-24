@@ -125,10 +125,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         # PART A: COMPOSITE TEMPLATE 1 - The Generated PDF
         # ---------------------------------------------------------
         # Purpose: Just add the PDF document and ensure the signer can see it.
-        
-        # Custom Fields
-        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
-        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
+         
 
         doc_pdf = Document(
             document_base64=dynamic_doc_b64,
@@ -149,8 +146,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         inline_pdf = InlineTemplate(
             sequence="1",
             documents=[doc_pdf],
-            recipients=Recipients(signers=[signer_pdf]),
-            custom_fields=custom_fields 
+            recipients=Recipients(signers=[signer_pdf]) 
         )
 
         comp_template_pdf = CompositeTemplate(
@@ -163,6 +159,10 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         # ---------------------------------------------------------
         # Purpose: Load the Legal Doc and apply the TABS (Total Fee).
         
+        # Custom Fields
+        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
+        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
+
         # 1. Define the Tabs (Text Tab for "Total_Fixed_Fee")
         fee_tab = Text(
             tab_label="Total_Fixed_Fee_Text", # Must match Template Label
@@ -189,7 +189,8 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         # 4. Inline Template (The Recipient Overlay)
         inline_template_legal = InlineTemplate(
             sequence="2",
-            recipients=Recipients(signers=[signer_legal])
+            recipients=Recipients(signers=[signer_legal]),
+            custom_fields=custom_fields 
         )
 
         comp_template_legal = CompositeTemplate(
