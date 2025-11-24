@@ -43,6 +43,7 @@ def generate_scope_and_milestones_pdf(data_dictionary):
             
             /* Signature Anchor - Invisible text for DocuSign */
             .hidden-anchor { color: #ffffff; font-size: 1px; }
+            .page-break { page-break-before: always; }
         </style>
     </head>
     <body>
@@ -77,7 +78,7 @@ def generate_scope_and_milestones_pdf(data_dictionary):
             </ul>
         </div>
 
-        <h2>9. Milestone Obligations</h2>
+        <h2 class="page-break"> 5. Milestone Obligations</h2>
         <table>
             <thead>
                 <tr>
