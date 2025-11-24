@@ -25,6 +25,9 @@ tasks_lock = threading.Lock()
 class AgentLogHandler(BaseCallbackHandler):
     def __init__(self, task_id, opp_id):
         self.task_id = task_id
+        # --- FIX 1: SAVE THE OPPORTUNITY ID ---
+        self.opp_id = opp_id 
+        # --------------------------------------
         self.prefix = f"[{opp_id}] "
         self.last_message = ""
         self.account_name = "Client" 
@@ -59,7 +62,9 @@ class AgentLogHandler(BaseCallbackHandler):
     # --- EVENT HANDLERS ---
 
     def on_chain_start(self, serialized, inputs, **kwargs):
-        if serialized.get("name") == "AgentExecutor":
+        # --- FIX 2: CHECK IF SERIALIZED EXISTS ---
+        # Sometimes 'serialized' is None, causing the 'NoneType' error.
+        if serialized and serialized.get("name") == "AgentExecutor":
             self.log("🤖 Agent activated.")
             self.update_status("🧠 Agent Initializing...")
 
