@@ -88,20 +88,20 @@ class AgentLogHandler(BaseCallbackHandler):
         self.log(f"Using tool: {tool_name}")
 
     def on_tool_end(self, output, **kwargs):
-        # --- DEBUG PRINT ---
-        # This will show us exactly what the tool returned
-        # print(f"DEBUG: Tool Output: {str(output)[:100]}...") 
-        
-        # Intercept the output from the DocuSign tool
+        # --- NEW DEBUG LINE ---
+        # Convert output to string just in case it's an object
+        print(f"🔥 DEBUG: RAW TOOL OUTPUT: {str(output)}") 
+        # ----------------------
+
+        # Existing logic
         if "Envelope ID:" in output:
-            # Extract the ID using Regex
-            match = re.search(r"Envelope ID: ([a-fA-F0-9\-]+)", output)
+            match = re.search(r"Envelope ID:\s*([a-fA-F0-9\-]+)", output)
             if match:
                 env_id = match.group(1)
-                print(f"✅ CAPTURED ENVELOPE ID: {env_id} for Opp {self.opp_id}") # <--- LOOK FOR THIS IN LOGS
+                print(f"✅ CAPTURED ENVELOPE ID: {env_id}")
                 self.save_envelope_id(env_id)
             else:
-                print(f"❌ Regex failed to match Envelope ID in output.")
+                print(f"❌ Regex failed to match inside: {output}")
 
     def on_agent_action(self, action, **kwargs):
         thought = action.log.split('Action:')[0].replace("Thought:", "").strip()
