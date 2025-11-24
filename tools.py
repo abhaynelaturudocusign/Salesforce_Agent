@@ -235,19 +235,22 @@ def create_composite_sow_envelope(tool_input: str) -> str:
 
 def get_open_opportunities() -> str:
     """
-    Fetches all Salesforce Opportunities in the 'Negotiation/Review' stage, 
-    including the primary contact's name and email.
+    Fetches all Opportunities in 'Negotiation/Review', including:
+    1. Basic Opportunity Details
+    2. Primary Contact Details (Name, Email, ID for editing)
+    3. Count of Product Line Items
     """
     print("--- Calling Tool: get_open_opportunities ---")
     try:
-        # Updated query to include Contact.Id
+        # Updated Query: Fetches Contact Roles AND Line Items in one go
         query = """
             SELECT Id, Name, Amount, CloseDate, 
                    (SELECT Contact.Id, Contact.Name, Contact.Email 
                     FROM OpportunityContactRoles 
-                    WHERE IsPrimary = true LIMIT 1) 
+                    WHERE IsPrimary = true LIMIT 1),
+                   (SELECT Id FROM OpportunityLineItems)
             FROM Opportunity 
-            WHERE StageName != 'Closed Won' AND IsClosed = false 
+            WHERE StageName = 'Negotiation/Review' AND IsClosed = false 
             ORDER BY Amount DESC
         """
         result = sf.query(query)
@@ -257,18 +260,29 @@ def get_open_opportunities() -> str:
             return "[]"
 
         for opp in records:
+            # --- 1. Process Contact Info (For UI Display & Editing) ---
             contact_roles = opp.get('OpportunityContactRoles')
             if contact_roles and contact_roles['records']:
                 contact = contact_roles['records'][0]['Contact']
-                opp['PrimaryContactId'] = contact['Id'] # <-- Add Contact ID
+                opp['PrimaryContactId'] = contact['Id']
                 opp['PrimaryContactName'] = contact['Name']
                 opp['PrimaryContactEmail'] = contact['Email']
             else:
-                opp['PrimaryContactId'] = None # <-- Handle no contact
+                opp['PrimaryContactId'] = None
                 opp['PrimaryContactName'] = 'N/A'
                 opp['PrimaryContactEmail'] = 'N/A'
             
-            del opp['OpportunityContactRoles']
+            # --- 2. Process Product Count (For UI Badge) ---
+            line_items = opp.get('OpportunityLineItems')
+            if line_items and line_items.get('records'):
+                opp['ProductCount'] = len(line_items['records'])
+            else:
+                opp['ProductCount'] = 0
+
+            # --- 3. Cleanup Nested Objects ---
+            if 'OpportunityContactRoles' in opp: del opp['OpportunityContactRoles']
+            if 'OpportunityLineItems' in opp: del opp['OpportunityLineItems']
+            if 'attributes' in opp: del opp['attributes']
             
         return json.dumps(records)
     except Exception as e:
