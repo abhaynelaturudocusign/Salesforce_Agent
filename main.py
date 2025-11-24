@@ -52,30 +52,38 @@ agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_pa
 # --- AGENT WORKER FUNCTIONS ---
 def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, tasks, tasks_lock):
     """Initiates the process by sending the contract."""
-    print(f"🚀 Starting the deal process for Opportunity {opportunity_id}...")
+    print(f"🚀 Starting the deal process for Opportunity {opportunity_id} (Task: {task_id})...")
     
     goal = f"""
     Act as a Solution Architect for Opportunity '{opportunity_id}'.
     
     1. GATHER DATA:
        - Get Opportunity details to find the 'Primary Contact Name' and 'Primary Contact Email'.
-       - Get Opportunity Line Items (Products, Prices).
+       - Get Opportunity Line Items.
     
-    2. DRAFT CONTENT:
-       - Write a 2-sentence "Background" on why the client needs this project.
-       - Write 3 "Objectives" based on the products being sold.
-       - Summarize the Line Items into a list of "Scope Items".
-       - Format the Line Items into a JSON list of "Milestones" (Name, Date, Amount).
+    2. PREPARE SOW CONTENT:
+       - Summarize the Line Items into a python list of dictionaries called 'scope_items' (keys: title, description).
+       - Convert the Line Items into a python list of dictionaries called 'milestones' (keys: name, date, amount).
+       - Draft 'background_text' and 'objectives_text'.
     
     3. EXECUTE:
        Use the 'Create Composite SOW' tool.
-       - 'client_name': Use the Primary Contact Name found in step 1.
-       - 'client_email': Use the Primary Contact Email found in step 1.
-       - 'project_name': Use the Opportunity Name.
-       - 'static_legal_template_id': '{template_id}'
-       - 'opportunity_id': '{opportunity_id}'
-       - 'signer_role_name': '{signer_role_name}'
-       - 'pdf_data': Construct a dictionary with the content you drafted (background_text, objectives_text, scope_items, milestones).
+       
+       You MUST format the input exactly like this JSON structure:
+       {{
+           "client_name": "...",
+           "client_email": "...",
+           "project_name": "...",
+           "static_legal_template_id": "{template_id}",
+           "signer_role_name": "{signer_role_name}",
+           "opportunity_id": "{opportunity_id}",
+           "pdf_data": {{
+               "background_text": "...",
+               "objectives_text": "...",
+               "scope_items": [ ...list from step 2... ],
+               "milestones": [ ...list from step 2... ]
+           }}
+       }}
        
     Report the final Envelope ID.
     """
