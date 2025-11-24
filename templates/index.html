@@ -2,28 +2,44 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>The Closer</title>
+    <title>The SOW Agent</title>
     <style>
-        body { font-family: sans-serif; margin: 2em; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: middle; }
-        th { background-color: #f2f2f2; }
-        button, .edit-btn, .save-btn { background-color: #0070d2; color: white; padding: 5px 10px; border: none; cursor: pointer; border-radius: 4px; font-size: 12px; }
-        .edit-btn { background-color: #555; }
-        .email-input { padding: 4px; width: 95%; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 2em; background-color: #f4f6f9; }
+        h1 { color: #032d60; }
+        h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; }
+
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border-radius: 4px; overflow: hidden; }
+        th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
+        th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
+        tr:hover { background-color: #f9f9f9; }
+
+        /* --- Button Styles --- */
+        button, .edit-btn, .save-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
+        button:hover { background-color: #005fb2; }
+        .edit-btn { background-color: #fff; color: #0070d2; border: 1px solid #0070d2; }
+        .edit-btn:hover { background-color: #f4f6f9; }
+
+        /* --- Link Styles (NEW) --- */
+        .opp-link { color: #0070d2; text-decoration: none; font-weight: 500; }
+        .opp-link:hover { text-decoration: underline; }
+
+        .email-input { padding: 6px; width: 95%; border: 1px solid #ccc; border-radius: 4px; }
         .edit-mode { display: none; }
+
+        /* --- Spinner & Toast --- */
         #spinner-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
         .spinner { border: 8px solid #f3f3f3; border-top: 8px solid #0070d2; border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #toast { visibility: hidden; min-width: 250px; background-color: #4CAF50; color: white; text-align: center; border-radius: 2px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 30px; }
+        
+        #toast { visibility: hidden; min-width: 300px; background-color: #04844b; color: white; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 4.5s; }
-        @keyframes fadein { from {top: 0; opacity: 0;} to {top: 30px; opacity: 1;} }
-        @keyframes fadeout { from {top: 30px; opacity: 1;} to {top: 0; opacity: 0;} }
+        @keyframes fadein { from {top: -50px; opacity: 0;} to {top: 20px; opacity: 1;} }
+        @keyframes fadeout { from {top: 20px; opacity: 1;} to {top: -50px; opacity: 0;} }
     </style>
 </head>
 <body>
-    <h1>The Closer</h1>
-    <h2>Select the opportunites and ask the closer agent to close</h2>
+    <h1>Auto Generate SOWs and send for signature</h1>
+    <h2>Select the projects and ask the SOW agent to generate, send and attach SOWs</h2>
     <form id="deal-form">
         <table>
             <thead>
@@ -44,8 +60,14 @@
                     <td>
                         <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>
                     </td>
-                    <td>{{ opp.Id }}</td>
-                    <td>{{ opp.Name }}</td>
+                    <td><small style="color:#999">{{ opp.Id }}</small></td>
+                    
+                    <td>
+                        <a href="{{ sf_base_url }}/{{ opp.Id }}" target="_blank" class="opp-link">
+                            {{ opp.Name }}
+                        </a>
+                    </td>
+
                     <td>${{ opp.Amount }}</td>
                     <td>{{ opp.PrimaryContactName }}</td>
                     <td>
@@ -70,7 +92,7 @@
             </tbody>
         </table>
         <br>
-        <button type="submit" formnovalidate>Start Closing Selected Deals</button>
+        <button type="submit" formnovalidate style="padding: 10px 20px; font-size: 16px;">Start Closing Selected Deals</button>
     </form>
     
     <div id="spinner-overlay"><div class="spinner"></div></div>

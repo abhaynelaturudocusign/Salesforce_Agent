@@ -40,8 +40,12 @@ def index():
     except Exception as e:
         print(f"❌ ERROR in index route: {type(e).__name__} - {e}")
 
+    # --- NEW: Get the Salesforce Base URL ---
+    # This ensures links work even if your domain changes
+    sf_base_url = os.getenv("SALESFORCE_INSTANCE_URL")
+
     print("--- [UI] Rendering template... ---")
-    return render_template('index.html', opportunities=opportunities)
+    return render_template('index.html', opportunities=opportunities,sf_base_url=sf_base_url)
 
 @app.route('/start-closing', methods=['POST'])
 def start_closing():
