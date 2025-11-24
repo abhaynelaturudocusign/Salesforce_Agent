@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>The Closer</title>
     <style>
-        /* ... (All previous body, table, button styles remain exactly the same) ... */
+        /* ... (Keep all your existing CSS styles) ... */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f9; min-height: 100vh; margin: 0; padding: 2em; box-sizing: border-box; }
         h1 { color: #032d60; margin-top: 0; }
         h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; }
@@ -13,25 +13,20 @@
         th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
         th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
         tr:hover { background-color: #f9f9f9; }
-        button, .edit-btn, .save-btn,  .view-sow-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
+        button, .edit-btn, .save-btn, .view-sow-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
         button:hover { background-color: #005fb2; }
         .edit-btn { background-color: #fff; color: #0070d2; border: 1px solid #0070d2; }
         .edit-btn:hover { background-color: #f4f6f9; }
+        
         /* NEW: View SOW Button Style */
-
         .view-sow-btn { 
-
             background-color: #ff9800; /* Orange to stand out */
-
             text-decoration: none; 
-
             display: none; /* Hidden by default */
-
             margin-left: 5px;
-
         }
-
         .view-sow-btn:hover { background-color: #e68900; }
+
         .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; }
         .submit-btn { padding: 10px 20px; font-size: 16px; }
         .opp-link { color: #0070d2; text-decoration: none; font-weight: 500; }
@@ -44,54 +39,13 @@
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 4.5s; }
         @keyframes fadein { from {top: -50px; opacity: 0;} to {top: 20px; opacity: 1;} }
         @keyframes fadeout { from {top: 20px; opacity: 1;} to {top: -50px; opacity: 0;} }
-
-        /* --- UPDATED SPINNER STYLES --- */
-        #spinner-overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            background-color: rgba(255,255,255,0.85); /* More opaque to make text readable */
-            z-index: 10; display: none; 
-            flex-direction: column; /* Stack spinner and text */
-            justify-content: center; align-items: center; 
-            backdrop-filter: blur(2px); 
-        }
-        .spinner { 
-            border: 4px solid #e0e0e0; border-top: 4px solid #0070d2; 
-            border-radius: 50%; width: 50px; height: 50px; 
-            animation: spin 1s linear infinite; 
-            margin-bottom: 15px; /* Space between spinner and text */
-        }
-        
-        /* New Status Text Style */
-        #loading-text {
-            color: #0070d2;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            font-weight: 500;
-            font-size: 16px;
-            text-align: center;
-            animation: pulse 2s infinite;
-        }
+        #spinner-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.85); z-index: 10; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .spinner { border: 4px solid #e0e0e0; border-top: 4px solid #0070d2; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        #loading-text { color: #0070d2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-weight: 500; font-size: 16px; text-align: center; animation: pulse 2s infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
-
-        /* New style for the completion list */
-        #completed-list {
-            list-style: none;
-            padding: 0;
-            margin-top: 15px;
-            width: 100%;
-            text-align: center;
-        }
-        .completed-item {
-            color: #04844b;
-            background-color: #eefcf6;
-            padding: 8px;
-            margin-bottom: 5px;
-            border-radius: 4px;
-            font-size: 14px;
-            font-weight: 600;
-            border: 1px solid #c3e6cb;
-            animation: fadein 0.5s;
-        }
+        #completed-list { list-style: none; padding: 0; margin-top: 15px; width: 100%; text-align: center; }
+        .completed-item { color: #04844b; background-color: #eefcf6; padding: 8px; margin-bottom: 5px; border-radius: 4px; font-size: 14px; font-weight: 600; border: 1px solid #c3e6cb; animation: fadein 0.5s; }
     </style>
 </head>
 <body>
@@ -99,7 +53,6 @@
     <h2>Select the projects and ask the SOW agent to generate, send and attach SOWs</h2>
     
     <div class="form-container">
-        
         <div id="spinner-overlay">
             <div class="spinner"></div>
             <div id="loading-text">Initializing...</div>
@@ -113,11 +66,11 @@
                         <th>Select</th>
                         <th>Project ID</th>
                         <th>Project Name</th>
-                        <th>Amount</th>
+                        <th>Total cost</th>
                         <th style="text-align: center;"># Products</th>
                         <th>Project Contact Name</th>
                         <th>Project Contact Email</th>
-                        <th>Close Date</th>
+                        <th>Delivery Date</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -144,6 +97,7 @@
                         <td>
                             <div class="view-mode">
                                  <button type="button" class="edit-btn" onclick="editEmail(this)" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>Edit</button>
+                                 
                                  <a href="#" class="view-sow-btn" target="_blank">View SOW</a>
                             </div>
                             <div class="edit-mode">
@@ -164,13 +118,12 @@
         <div style="color: #888; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 10px;">AGENTS LIVE ACTIVITY LOG</div>
         <div id="console-content"></div>
     </div>
-    
     <div id="toast">Agent has successfully processed all envelopes!</div>
 
     <script>
         const form = document.getElementById('deal-form');
         const spinner = document.getElementById('spinner-overlay');
-        const loadingText = document.getElementById('loading-text'); // New element
+        const loadingText = document.getElementById('loading-text');
         const toast = document.getElementById('toast');
         const consoleDiv = document.getElementById('agent-console');
         const consoleContent = document.getElementById('console-content');
@@ -179,10 +132,10 @@
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
                 
-                // Reset UI
                 spinner.style.display = 'flex';
                 loadingText.innerText = "🚀 Initializing Agents...";
-                document.getElementById('completed-list').innerHTML = '';
+                document.getElementById('completed-list').innerHTML = ''; // Clear list
+                
                 consoleDiv.style.display = 'block'; 
                 consoleContent.innerHTML = '<div class="log-entry">Starting process...</div>';
                 
@@ -200,33 +153,23 @@
                         spinner.style.display = 'none';
                         alert('Error: ' + (data.message || 'Unknown error'));
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    spinner.style.display = 'none';
-                    alert("Network Error. Check console.");
                 });
             });
         }
 
         function pollStatus(taskId) {
             let lastLogCount = 0;
-            // Keep track of what we have already displayed to avoid flickering
             let displayedDeals = new Set();
-
-            let processedResults = new Set();
+            let processedResults = new Set(); // Track buttons we've already shown
 
             const intervalId = setInterval(() => {
                 fetch(`/task-status/${taskId}`)
                     .then(response => response.json())
                     .then(data => {
                         
-                        // 1. UPDATE STATUS TEXT (Current Action)
-                        if (data.current_step) {
-                            document.getElementById('loading-text').innerText = data.current_step;
-                        }
+                        if (data.current_step) loadingText.innerText = data.current_step;
 
-                        // 2. UPDATE COMPLETED LIST (The Checklist)
+                        // Update Checklist
                         if (data.finished_deals && data.finished_deals.length > 0) {
                             const listContainer = document.getElementById('completed-list');
                             data.finished_deals.forEach(dealName => {
@@ -241,40 +184,24 @@
                         }
 
                         // --- NEW LOGIC: Show "View SOW" Buttons ---
-
                         if (data.results) {
-
                             for (const [oppId, envelopeId] of Object.entries(data.results)) {
-
                                 if (!processedResults.has(oppId)) {
-
                                     const row = document.getElementById('row-' + oppId);
-
                                     if (row) {
-
                                         const btn = row.querySelector('.view-sow-btn');
-
                                         if (btn) {
-
                                             // Construct DocuSign URL
-
                                             btn.href = `https://apps-d.docusign.com/send/documents/details/${envelopeId}`;
-
                                             btn.style.display = 'inline-block'; // Show button
-
                                         }
-
                                     }
-
                                     processedResults.add(oppId);
-
                                 }
-
                             }
-
                         }
 
-                        // 3. Update Console
+                        // Update Logs
                         if (data.logs && data.logs.length > lastLogCount) {
                             const newLogs = data.logs.slice(lastLogCount);
                             newLogs.forEach(logMsg => {
@@ -287,16 +214,14 @@
                             lastLogCount = data.logs.length;
                         }
 
-                        // 4. Check Completion
+                        // Complete
                         if (data.status === 'completed') {
                             clearInterval(intervalId);
-                            
-                            // OPTIONAL: Delay hiding the spinner so user can see the full checklist
                             setTimeout(() => {
                                 spinner.style.display = 'none';
                                 toast.className = 'show';
                                 setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
-                            }, 2000); // Wait 2 seconds before removing overlay
+                            }, 2000);
                             
                             const div = document.createElement('div');
                             div.className = 'log-entry';
@@ -313,7 +238,6 @@
             }, 1500); 
         }
 
-        // ... (editEmail and saveEmail functions remain the same) ...
         function editEmail(editButton) {
             const row = editButton.closest('tr');
             row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
