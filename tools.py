@@ -7,7 +7,7 @@ import time
 import requests  # <--- IMPORT REQUESTS
 import datetime
 from dotenv import load_dotenv
-from docusign_esign import ApiClient, EnvelopesApi, EnvelopeDefinition, Document, Signer, SignHere, Tabs, Recipients, TemplateRole, TextCustomField, CustomFields
+from docusign_esign import ApiClient, EnvelopesApi, EnvelopeDefinition, Document, Signer, SignHere, Tabs, Recipients, TemplateRole, TextCustomField, CustomFields, Tabs, Text, Number
 from simple_salesforce import Salesforce
 from docusign_esign import CompositeTemplate, ServerTemplate, InlineTemplate, Document
 from tools_pdf import generate_scope_and_milestones_pdf # Import the new PDF tool
@@ -106,7 +106,8 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         static_legal_template_id = args.get('static_legal_template_id')
         opportunity_id = args.get('opportunity_id', '')
         signer_role_name = args.get('signer_role_name', 'Signer')
-        
+        total_fixed_fee = args.get('total_fixed_fee', '0.00')
+
         # Extract PDF Data with Defaults to prevent "Empty" PDF
         pdf_data = args.get('pdf_data', {})
         pdf_data.setdefault('scope_items', [{'title': 'TBD', 'description': 'No scope provided by agent.'}])
@@ -127,6 +128,14 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         with open(dynamic_pdf_path, "rb") as file:
             dynamic_pdf_bytes = file.read()
         dynamic_doc_b64 = base64.b64encode(dynamic_pdf_bytes).decode("ascii")
+
+        fee_tab = Number(
+            tab_label="Total_Fixed_Fee", 
+            value=str(total_fixed_fee)
+        )
+        
+        # IMPORTANT: We pass this list to 'number_tabs', NOT 'text_tabs'
+        signer_tabs = Tabs(number_tabs=[fee_tab])
 
         # 2. Define the Signer
         signer = Signer(
