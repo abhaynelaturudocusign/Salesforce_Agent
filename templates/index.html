@@ -4,25 +4,32 @@
     <meta charset="UTF-8">
     <title>The Closer</title>
     <style>
-        /* ... (CSS styles remain the same as your provided code) ... */
+        /* ... (Keep existing global styles) ... */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f9; min-height: 100vh; margin: 0; padding: 2em; box-sizing: border-box; }
         h1 { color: #032d60; margin-top: 0; }
         h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; }
         .form-container { position: relative; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
+        
+        /* Table Styles */
         table { width: 100%; border-collapse: collapse; }
         th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
         th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
         tr:hover { background-color: #f9f9f9; }
-        button, .edit-btn, .save-btn, .view-sow-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; text-decoration: none; display: inline-block; }
+        
+        /* Button Styles */
+        button, .edit-btn, .save-btn, .view-sow-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
         button:hover { background-color: #005fb2; }
         .edit-btn { background-color: #fff; color: #0070d2; border: 1px solid #0070d2; }
         .edit-btn:hover { background-color: #f4f6f9; }
         
-        /* View SOW Button - Orange, Hidden by Default */
+        /* View SOW Button Style */
         .view-sow-btn { 
-            background-color: #ff9800; 
-            display: none; /* Hidden until JS reveals it */
-            margin-left: 5px;
+            background-color: #ff9800; /* Orange */
+            text-decoration: none; 
+            display: none; /* Hidden by default */
+            font-weight: bold;
+            font-size: 12px;
+            padding: 5px 10px;
         }
         .view-sow-btn:hover { background-color: #e68900; }
 
@@ -32,6 +39,8 @@
         .opp-link:hover { text-decoration: underline; }
         .email-input { padding: 6px; width: 95%; border: 1px solid #ccc; border-radius: 4px; }
         .edit-mode { display: none; }
+        
+        /* Console, Spinner, Toast Styles (Same as before) */
         #agent-console { margin-top: 25px; background-color: #1e1e1e; color: #00ff00; font-family: "Courier New", Courier, monospace; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 1px solid #333; }
         .log-entry { margin-bottom: 5px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #333; padding-bottom: 2px;}
         #toast { visibility: hidden; min-width: 300px; background-color: #04844b; color: white; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
@@ -65,8 +74,15 @@
                         <th>Select</th>
                         <th>Project ID</th>
                         <th>Project Name</th>
-                        <th>Total Value</th> <th style="text-align: center;"># Products</th>
-                        <th>Project Contact Name</th> <th>Project Contact Email</th> <th>Delivery Date</th> <th>Actions</th>
+                        <th>Total Value</th>
+                        <th style="text-align: center;"># Products</th>
+                        <th>Project Contact Name</th>
+                        <th>Project Contact Email</th>
+                        <th>Delivery Date</th>
+                        
+                        <th>SOW Link</th>
+                        
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -76,7 +92,6 @@
                             <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>
                         </td>
                         <td><small style="color:#999">{{ opp.Id }}</small></td>
-                        
                         <td>
                             {% if sf_base_url %}
                                 <a href="{{ sf_base_url }}/{{ opp.Id }}" target="_blank" class="opp-link">{{ opp.Name }}</a>
@@ -84,7 +99,6 @@
                                 {{ opp.Name }}
                             {% endif %}
                         </td>
-                        
                         <td>${{ opp.Amount }}</td>
                         <td style="text-align: center;">
                             <span style="background: #eef4ff; color: #2e844a; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.9em;">
@@ -97,10 +111,14 @@
                             <div class="edit-mode"><input type="email" class="email-input" value="{{ opp.PrimaryContactEmail }}"></div>
                         </td>
                         <td>{{ opp.CloseDate }}</td>
+                        
+                        <td>
+                            <a href="#" class="view-sow-btn" target="_blank">View SOW</a>
+                        </td>
+
                         <td>
                             <div class="view-mode">
                                  <button type="button" class="edit-btn" onclick="editEmail(this)" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>Edit</button>
-                                 <a href="#" class="view-sow-btn" target="_blank">View SOW</a>
                             </div>
                             <div class="edit-mode">
                                 <button type="button" class="save-btn" onclick="saveEmail(this)">Save</button>
@@ -190,7 +208,7 @@
                             });
                         }
 
-                        // Button Reveal Logic
+                        // Button Reveal Logic (No changes needed, just finds the class in the row)
                         if (data.results) {
                             for (const [oppId, envelopeId] of Object.entries(data.results)) {
                                 if (!processedResults.has(oppId)) {
