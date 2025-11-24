@@ -311,7 +311,8 @@ def get_opportunity_details(opportunity_id: str) -> str:
     )
     try:
         query = f"""
-            SELECT Name, Amount, StageName, Account.Name,
+            SELECT Name, Amount, StageName, Description, 
+                   Account.Name, Account.Industry, Account.Description,
                    (SELECT Contact.Name, Contact.Email 
                     FROM OpportunityContactRoles 
                     WHERE IsPrimary = true LIMIT 1) 
@@ -323,6 +324,7 @@ def get_opportunity_details(opportunity_id: str) -> str:
             return f"Error: No Opportunity found with ID {opportunity_id}"
 
         record = result['records'][0]
+        account = record.get('Account', {})
 
         # Extract Account Name
         account_name = record['Account']['Name'] if record['Account'] else "Unknown Account"
@@ -332,10 +334,18 @@ def get_opportunity_details(opportunity_id: str) -> str:
             return f"Error: No Primary Contact found for Opportunity {record['Name']}"
 
         contact = contact_roles['records'][0]['Contact']
-        details = (
-            f"Opportunity Name: {record['Name']}, Account Name: {account_name}, Amount: {record['Amount']}, Stage: {record['StageName']}, "
-            f"Primary Contact Name: {contact['Name']}, Primary Contact Email: {contact['Email']}"
-        )
+        # Format a rich context string for the AI
+        details = json.dumps({
+            "Opportunity": record['Name'],
+            "Amount": record['Amount'],
+            "Stage": record['StageName'],
+            "Opp_Description": record.get('Description', 'No description provided.'),
+            "Account": account.get('Name'),
+            "Industry": account.get('Industry', 'Unknown Industry'),
+            "Account_Context": account.get('Description', 'No account details.'),
+            "Contact_Name": contact['Name'],
+            "Contact_Email": contact['Email']
+        })
         return details
     except Exception as e:
         return f"Salesforce API Error: {e}"

@@ -105,6 +105,15 @@ def generate_scope_and_milestones_pdf(data_dictionary):
             </ul>
         </div>
 
+        <h2> Project Assumptions</h2>
+        <div class="section-content">
+            <ul>
+            {% for assumption in assumptions_list %}
+                <li>{{ assumption }}</li>
+            {% endfor %}
+            </ul>
+        </div>
+
         <h2 class="page-break">5. Milestone Obligations</h2>
         <table>
             <thead>

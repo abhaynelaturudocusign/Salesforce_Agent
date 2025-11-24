@@ -57,30 +57,33 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
     goal = f"""
 
     Act as a Solution Architect for Opportunity '{opportunity_id}'.
-
+    Your job is to write a professional Statement of Work (SOW) for Opportunity '{opportunity_id}'
     
 
     1. GATHER DATA:
 
-       - Get Opportunity details (Contact Name, Contact Email).
+       - Get Opportunity details (Contact Name, Contact Email). PAY ATTENTION to the 'Industry' and 'Opp_Description'.
 
        - Get Opportunity Line Items (Products, Prices, Dates).
 
     
 
-    2. PREPARE CONTENT:
+    2. ARCHITECT THE CONTENT (BE CREATIVE):
 
        - Calculate 'total_fixed_fee' by summing the TotalPrice of all line items. Format as "5000.00" (no symbols).
 
-       - Draft 'background_text' and 'objectives_text' based on the products.
+       - **Background:** Write a professional 3-sentence executive summary. You must connect the client's Industry (found in step 1) to the specific need for power generation. Use the 'Opp_Description' for specific context.
 
-       
+       - **Objectives:** Write 3 strategic objectives. (e.g., "Ensure business continuity during grid outages").
 
        - GENERATE SCOPE ITEMS:
 
          Create a list of scope items, one for each product line item.
+        - **Detailed Scope (The "Expander"):** For EACH product line item, do not just list the name. Write a full sentence describing the implementation work.
+         * Example Input: "GenWatt 100kW"
+         * Expected Output: "Delivery, installation, and electrical integration of one GenWatt 100kW unit, including site acceptance testing."
 
-         
+        - **Assumptions (NEW):** Generate 3 logical project assumptions based on the products sold (e.g., site access, permits, network connectivity).
 
        - GENERATE MILESTONES (CRITICAL RULE):
 
@@ -121,16 +124,10 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
            "pdf_data": {{
                "background_text": "2 sentences on context...",
                "objectives_text": "3 bullet points...",
-               "scope_items": [
-                   {{
-                       "title": "Product Name or Category", 
-                       "description": "Detailed description of work for this item."
-                   }},
-                   {{
-                       "title": "Another Item", 
-                       "description": "Description..."
-                   }}
-               ],
+               "scope_items": [ 
+               {{ "title": "Product Name", "description": "YOUR EXPANDED AI-GENERATED DESCRIPTION HERE" }}
+                ],
+                "assumptions_list": [ "Assumption 1...", "Assumption 2...", "Assumption 3..." ],
                "milestones": [
                    {{
                        "name": "Milestone 1", 
