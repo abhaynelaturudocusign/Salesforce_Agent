@@ -99,6 +99,12 @@ def create_composite_sow_envelope(tool_input: str) -> str:
     if not api_client: return "Error: DocuSign Auth Failed"
 
     try:
+
+        # Extract PDF Data with Defaults to prevent "Empty" PDF
+        pdf_data = args.get('pdf_data', {})
+        pdf_data.setdefault('scope_items', [{'title': 'TBD', 'description': 'No scope provided by agent.'}])
+        pdf_data.setdefault('milestones', [{'name': 'TBD', 'date': 'TBD', 'amount': 'TBD'}])
+
         args = json.loads(tool_input)
         client_name = args.get('client_name')
         client_email = args.get('client_email')
@@ -108,13 +114,11 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         signer_role_name = args.get('signer_role_name', 'Signer')
         total_fixed_fee = args.get('total_fixed_fee', '0.00')
 
-        # Extract PDF Data with Defaults to prevent "Empty" PDF
-        pdf_data = args.get('pdf_data', {})
-        pdf_data.setdefault('scope_items', [{'title': 'TBD', 'description': 'No scope provided by agent.'}])
-        pdf_data.setdefault('milestones', [{'name': 'TBD', 'date': 'TBD', 'amount': 'TBD'}])
+        
 
         # --- DEBUG LOGGING ---
         print(f"DEBUG: PDF DATA RECEIVED: {json.dumps(pdf_data, indent=2)}")
+        print(f"DEBUG: total_fixed_fee : {total_fixed_fee}")
         # ---------------------
 
         if not client_email or not client_name or not static_legal_template_id:
@@ -144,6 +148,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
             role_name=signer_role_name, 
             recipient_id="1",
             routing_order="1"
+            tabs = signer_tabs
         )
 
         # 3. Composite Template A: The Generated PDF (Document 1)
