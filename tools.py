@@ -145,7 +145,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         # Layer A: The Server Template (Legal Terms)
         # sequence="1" means "Start with this"
         server_template = ServerTemplate(
-            sequence="1", 
+            sequence="2", 
             template_id=static_legal_template_id
         )
 
@@ -153,7 +153,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         # sequence="2" means "Apply this on top"
         # By putting the Signer here, we tell DocuSign: "This person plays the role defined in Layer A"
         inline_template = InlineTemplate(
-            sequence="2",
+            sequence="1",
             documents=[doc_pdf], # This adds the PDF to the envelope
             recipients=Recipients(signers=[signer]) # This maps the signer to the tabs
         )
