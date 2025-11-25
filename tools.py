@@ -76,6 +76,27 @@ def get_docusign_client():
 
 # tools.py (new tool)
 
+def get_docusign_token():
+    """Generates a raw Access Token string (For Raw API calls)."""
+    print(f"--- 🔄 AUTHENTICATING (Raw): Requesting token at {datetime.datetime.now()} ---")
+    try:
+        api_client = ApiClient()
+        api_client.host = os.getenv("DOCUSIGN_HOST")
+        api_client.oauth_host_name = "account-d.docusign.com"
+
+        token_response = api_client.request_jwt_user_token(
+            client_id=os.getenv("DOCUSIGN_IK"),
+            user_id=os.getenv("DOCUSIGN_USER_ID"),
+            oauth_host_name="account-d.docusign.com",
+            private_key_bytes=open("docusign_private.key").read(),
+            expires_in=3600,
+            scopes=["signature", "impersonation"]
+        )
+        return token_response.access_token
+    except Exception as e:
+        print(f"❌ DocuSign Raw Token Error: {e}")
+        return None
+
 def get_opportunity_line_items(opportunity_id: str) -> str:
     """Fetches the product line items for a Salesforce Opportunity."""
     print(f"--- Calling Tool: get_opportunity_line_items for {opportunity_id} ---")
