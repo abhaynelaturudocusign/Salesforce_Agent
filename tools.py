@@ -222,28 +222,9 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             recipient_id="1", routing_order="1"
         )
 
-        # --- NEW: Create Custom Fields for Webhook Tracking ---
-
-        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
-
-        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
-
-        # ------------------------------------------------------
-
         server_template = ServerTemplate(sequence="1", template_id=template_id)
-        # Attach recipients AND custom fields to the Inline Template
+        inline_template = InlineTemplate(sequence="1", recipients=Recipients(signers=[signer]))
 
-        # This ensures they merge correctly with the Server Template
-
-        inline_template = InlineTemplate(
-
-            sequence="2", 
-
-            recipients=Recipients(signers=[signer]),
-
-            custom_fields=custom_fields # <--- Added here
-
-        )
         comp_template = CompositeTemplate(
             composite_template_id="1",
             server_templates=[server_template],
@@ -326,6 +307,34 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             return f"Error Updating DocGen Fields: {response_put.text}"
             
         print(f"--- Data Merged Successfully ---")
+
+        # ============================================================
+        # STEP 4: ADD CUSTOM FIELDS (PUT /envelopes/{id}?advanced_update=true)
+        # ============================================================
+        # This is the critical fix you identified.
+        
+        cf_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}?advanced_update=true"
+        
+        cf_body = {
+            "customFields": {
+                "textCustomFields": [
+                    {
+                        "name": "opportunity_id",
+                        "value": opportunity_id,
+                        "fieldId": "20000000002923311",
+                        "show": "false" # Kept false for internal ID, change to "true" if you want signers to see it
+                    }
+                ]
+            }
+        }
+        
+        print(f"--- Applying Custom Fields via Advanced Update... ---")
+        response_cf = requests.put(cf_url, headers=headers, json=cf_body)
+        
+        if response_cf.status_code != 200:
+            return f"Error Setting Custom Fields: {response_cf.text}"
+            
+        print(f"--- Custom Fields Applied Successfully ---")
 
         # ============================================================
         # STEP 4: SEND ENVELOPE (PUT /envelopes/{id})
