@@ -95,13 +95,15 @@ def get_opportunity_line_items(opportunity_id: str) -> str:
 
 # tools.py
 
-def build_docgen_form_fields(data_dict, target_document_id):
+
+# --- HELPER: RAW JSON BUILDER ---
+def build_docgen_json_raw(data_dict):
     """
-    Constructs the DocGenFormFields object mapped to a specific Document ID.
+    Builds the list of dictionaries for the DocGen JSON payload.
     """
     fields_list = []
 
-    # 1. Map Simple Fields
+    # 1. Simple Fields
     simple_keys = [
         'Account_Label', 'Company_Name', 'primary_contact_name',
         'project_start_date', 'project_end_date', 'project_background',
@@ -110,54 +112,66 @@ def build_docgen_form_fields(data_dict, target_document_id):
     for key in simple_keys:
         val = data_dict.get(key, '')
         if val:
-            fields_list.append(DocGenFormField(name=key, value=str(val)))
+            fields_list.append({
+                "name": key,
+                "value": str(val),
+                "type": "TextBox"
+            })
 
-    # 2. Map Dynamic Table: Scope
+    # 2. Dynamic Table: Scope
     scope_items = data_dict.get('Project_Scope', [])
     if scope_items:
         row_values = []
         for item in scope_items:
+            # Row List
             row_fields = [
-                DocGenFormField(name="Delivery_of_product", value=item.get('Delivery_of_product', ''))
+                { "name": "Delivery_of_product", "value": item.get('Delivery_of_product', ''), "type": "TextBox" }
             ]
-            row_values.append(DocGenFormField(doc_gen_form_field_list=row_fields))
+            row_values.append({ "docGenFormFieldList": row_fields })
         
-        fields_list.append(DocGenFormField(
-            name="Project_Scope", type="TableRow", row_values=row_values
-        ))
+        fields_list.append({
+            "name": "Project_Scope",
+            "type": "TableRow",
+            "rowValues": row_values
+        })
 
-    # 3. Map Dynamic Table: Milestones
+    # 3. Dynamic Table: Milestones
     milestones = data_dict.get('Project_Assumptions', [])
     if milestones:
         row_values = []
         for m in milestones:
             row_fields = [
-                DocGenFormField(name="Milestone_Product", value=m.get('Milestone_Product', '')),
-                DocGenFormField(name="Milestone_Description", value=m.get('Milestone_Description', '')),
-                DocGenFormField(name="Milestone_Date", value=m.get('Milestone_Date', '')),
-                DocGenFormField(name="Milestone_Amount", value=m.get('Milestone_Amount', ''))
+                { "name": "Milestone_Product", "value": m.get('Milestone_Product', ''), "type": "TextBox" },
+                { "name": "Milestone_Description", "value": m.get('Milestone_Description', ''), "type": "TextBox" },
+                { "name": "Milestone_Date", "value": m.get('Milestone_Date', ''), "type": "TextBox" },
+                { "name": "Milestone_Amount", "value": m.get('Milestone_Amount', ''), "type": "TextBox" }
             ]
-            row_values.append(DocGenFormField(doc_gen_form_field_list=row_fields))
+            row_values.append({ "docGenFormFieldList": row_fields })
 
-        fields_list.append(DocGenFormField(
-            name="Project_Assumptions", type="TableRow", row_values=row_values
-        ))
+        fields_list.append({
+            "name": "Project_Assumptions",
+            "type": "TableRow",
+            "rowValues": row_values
+        })
 
-    # Wrap in the parent object linked to the correct Document ID
-    return DocGenFormFields(
-        doc_gen_form_fields=[
-            DocGenFormField(document_id=target_document_id, doc_gen_form_field_list=fields_list)
-        ]
-    )
+    return fields_list
 
+# --- TOOL: CREATE DOCGEN ENVELOPE (HYBRID SDK + RAW API) ---
 def create_docgen_sow_envelope(tool_input: str) -> str:
-    print(f"--- Calling Tool: create_docgen_sow_envelope (Corrected Param Name) ---")
+    print(f"--- Calling Tool: create_docgen_sow_envelope (Raw API Flow) ---")
     
-    api_client = get_docusign_client()
-    if not api_client: return "Error: DocuSign Auth Failed"
+    # 1. Auth using SDK for convenience in Step 1
+    # We also get the raw token for Steps 2-4
+    access_token = get_docusign_token()
+    if not access_token: return "Error: DocuSign Auth Failed"
+    
+    api_client = ApiClient()
+    api_client.host = os.getenv("DOCUSIGN_HOST")
+    api_client.set_default_header("Authorization", "Bearer " + access_token)
     
     envelopes_api = EnvelopesApi(api_client)
     account_id = os.getenv("DOCUSIGN_API_ACCOUNT_ID")
+    base_url = os.getenv("DOCUSIGN_HOST") # e.g. https://demo.docusign.net/restapi
 
     try:
         args = json.loads(tool_input)
@@ -175,7 +189,7 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         })
 
         # ============================================================
-        # STEP 3: CREATE DRAFT ENVELOPE
+        # STEP 1: CREATE DRAFT ENVELOPE (Using SDK)
         # ============================================================
         signer = Signer(
             email=client_email, name=client_name,
@@ -192,7 +206,7 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         )
 
         envelope_def = EnvelopeDefinition(
-            status="created", 
+            status="created", # Draft
             email_subject=f"SOW for {project_name}",
             composite_templates=[comp_template]
         )
@@ -202,45 +216,76 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         print(f"--- Draft Envelope Created: {envelope_id} ---")
 
         # ============================================================
-        # STEP 4: GET FIELDS
+        # PREPARE FOR RAW CALLS
         # ============================================================
-        doc_gen_info = envelopes_api.get_envelope_doc_gen_form_fields(account_id, envelope_id)
-        
-        if not doc_gen_info.doc_gen_form_fields:
-            return "Error: No DocGen fields found. Verify Template configuration."
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
 
-        target_doc_id = doc_gen_info.doc_gen_form_fields[0].document_id
+        # ============================================================
+        # STEP 2: GET DOCUMENT ID (GET /docGenFormFields)
+        # ============================================================
+        get_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}/docGenFormFields"
+        
+        print(f"--- GET {get_url} ---")
+        response_get = requests.get(get_url, headers=headers)
+        
+        if response_get.status_code != 200:
+            return f"Error Fetching DocGen Fields: {response_get.text}"
+            
+        get_data = response_get.json()
+        # Extract documentId from the first item in the list
+        if not get_data.get('docGenFormFields'):
+             return "Error: No DocGen fields found. Is the template set up correctly?"
+             
+        target_doc_id = get_data['docGenFormFields'][0]['documentId']
         print(f"--- Found Target Document ID: {target_doc_id} ---")
 
         # ============================================================
-        # STEP 5: UPDATE FIELDS (With Correct Parameter Name)
+        # STEP 3: ADD MERGE FIELDS (PUT /docgenformfields)
         # ============================================================
+        put_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}/docgenformfields?update_docgen_formfields_only=false"
         
-        # Build the payload using the ID we just found
-        # This returns a DocGenFormFields object
-        payload = build_docgen_form_fields(doc_data, target_doc_id)
+        # Build the raw JSON body
+        fields_list_raw = build_docgen_json_raw(doc_data)
+        
+        request_body = {
+            "docGenFormFields": [
+                {
+                    "documentId": target_doc_id,
+                    "docGenFormFieldList": fields_list_raw
+                }
+            ]
+        }
 
-        print(f"--- Sending DocGen Data Payload... ---")
+        print(f"--- PUT {put_url} ---")
+        print(f"DEBUG PAYLOAD: {json.dumps(request_body, indent=2)}")
         
-        envelopes_api.update_envelope_doc_gen_form_fields(
-            account_id, 
-            envelope_id, 
-            # --- CRITICAL FIX: Use the exact keyword from documentation ---
-            doc_gen_form_field_request=payload 
-        )
+        response_put = requests.put(put_url, headers=headers, json=request_body)
+        
+        if response_put.status_code != 200:
+            return f"Error Updating DocGen Fields: {response_put.text}"
+            
         print(f"--- Data Merged Successfully ---")
 
         # ============================================================
-        # STEP 6: SEND ENVELOPE
+        # STEP 4: SEND ENVELOPE (PUT /envelopes/{id})
         # ============================================================
+        send_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}"
         
-        send_payload = Envelope(status="sent")
-        envelopes_api.update(account_id, envelope_id, envelope=send_payload)
+        send_body = { "status": "sent" }
+        
+        print(f"--- Sending Envelope... ---")
+        response_send = requests.put(send_url, headers=headers, json=send_body)
+        
+        if response_send.status_code != 200:
+            return f"Error Sending Envelope: {response_send.text}"
         
         return f"SOW Sent! Envelope ID: {envelope_id}"
 
     except Exception as e:
-        print(f"DocuSign API Error Detail: {e}")
+        print(f"API Execution Error: {e}")
         return f"Error generating SOW: {e}"
 
 def create_composite_sow_envelope(tool_input: str) -> str:
