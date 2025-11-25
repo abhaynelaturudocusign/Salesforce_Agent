@@ -237,7 +237,7 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
 
         inline_template = InlineTemplate(
 
-            sequence="1", 
+            sequence="2", 
 
             recipients=Recipients(signers=[signer]),
 
@@ -255,6 +255,19 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             email_subject=f"SOW for {project_name}",
             composite_templates=[comp_template]
         )
+
+        # --- 🔍 DEBUG: PRINT DRAFT PAYLOAD ---
+        print("\n" + "="*30)
+        print("🔍 DEBUG: DRAFT ENVELOPE PAYLOAD (STEP 1)")
+        print("="*30)
+        try:
+            # Sanitize converts the SDK object into a JSON-serializable dict
+            payload = api_client.sanitize_for_serialization(envelope_def)
+            print(json.dumps(payload, indent=2))
+        except Exception as debug_err:
+            print(f"Could not print debug JSON: {debug_err}")
+        print("="*30 + "\n")
+        # -------------------------------------
 
         draft = envelopes_api.create_envelope(account_id, envelope_definition=envelope_def)
         envelope_id = draft.envelope_id
