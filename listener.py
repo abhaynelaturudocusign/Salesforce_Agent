@@ -195,7 +195,7 @@ def start_closing():
         # Create a handler specific to this Opportunity
         log_handler = AgentLogHandler(task_id, opp_id)
         # Pass the task_id to the background thread
-        thread = threading.Thread(target=start_deal_process, args=(opp_id, template_id, signer_role, task_id, tasks, tasks_lock, log_handler))
+        thread = threading.Thread(target=start_deal_process, args=(opp_id, template_id, signer_role, task_id, tasks, tasks_lock, log_handler, use_docgen))
         thread.start()
 
     return jsonify({"status": "started", "task_id": task_id})
