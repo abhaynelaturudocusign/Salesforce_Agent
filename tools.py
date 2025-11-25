@@ -11,6 +11,11 @@ from docusign_esign import ApiClient, EnvelopesApi, EnvelopeDefinition, Document
 from simple_salesforce import Salesforce
 from docusign_esign import CompositeTemplate, ServerTemplate, InlineTemplate, Document,DocGenFormField, DocGenFormFields
 from tools_pdf import generate_scope_and_milestones_pdf # Import the new PDF tool
+from docusign_esign import (
+    ApiClient, EnvelopesApi, EnvelopeDefinition, Document, Signer, Recipients,
+    CompositeTemplate, ServerTemplate, InlineTemplate, Envelope,
+    DocGenFormField, DocGenFormFields
+)
 # ... other imports ...
 
 # Load environment variables from .env file
@@ -90,12 +95,11 @@ def get_opportunity_line_items(opportunity_id: str) -> str:
 
 # tools.py
 
-def build_docgen_form_fields(data_dict):
+def build_docgen_form_fields(data_dict, target_document_id):
     """
-    Helper to build the DocGenFormField objects for the SDK.
-    Handles both simple fields and dynamic tables (rowValues).
+    Constructs the DocGenFormFields object mapped to a specific Document ID.
     """
-    fields = []
+    fields_list = []
 
     # 1. Map Simple Fields
     simple_keys = [
@@ -106,26 +110,23 @@ def build_docgen_form_fields(data_dict):
     for key in simple_keys:
         val = data_dict.get(key, '')
         if val:
-            fields.append(DocGenFormField(name=key, value=str(val)))
+            fields_list.append(DocGenFormField(name=key, value=str(val)))
 
-    # 2. Map Dynamic Table: Scope (Project_Scope)
+    # 2. Map Dynamic Table: Scope
     scope_items = data_dict.get('Project_Scope', [])
     if scope_items:
         row_values = []
         for item in scope_items:
-            # Each row needs its own list of fields
             row_fields = [
                 DocGenFormField(name="Delivery_of_product", value=item.get('Delivery_of_product', ''))
             ]
             row_values.append(DocGenFormField(doc_gen_form_field_list=row_fields))
         
-        fields.append(DocGenFormField(
-            name="Project_Scope",
-            type="TableRow",
-            row_values=row_values
+        fields_list.append(DocGenFormField(
+            name="Project_Scope", type="TableRow", row_values=row_values
         ))
 
-    # 3. Map Dynamic Table: Milestones (Project_Assumptions)
+    # 3. Map Dynamic Table: Milestones
     milestones = data_dict.get('Project_Assumptions', [])
     if milestones:
         row_values = []
@@ -138,21 +139,19 @@ def build_docgen_form_fields(data_dict):
             ]
             row_values.append(DocGenFormField(doc_gen_form_field_list=row_fields))
 
-        fields.append(DocGenFormField(
-            name="Project_Assumptions",
-            type="TableRow",
-            row_values=row_values
+        fields_list.append(DocGenFormField(
+            name="Project_Assumptions", type="TableRow", row_values=row_values
         ))
 
-    return fields
-
-# tools.py
+    # Wrap in the parent object linked to the correct Document ID
+    return DocGenFormFields(
+        doc_gen_form_fields=[
+            DocGenFormField(document_id=target_document_id, doc_gen_form_field_list=fields_list)
+        ]
+    )
 
 def create_docgen_sow_envelope(tool_input: str) -> str:
-    """
-    Generates an SOW using a SINGLE DocuSign DocGen (Word) Template.
-    """
-    print(f"--- Calling Tool: create_docgen_sow_envelope (Single Template) ---")
+    print(f"--- Calling Tool: create_docgen_sow_envelope (4-Step Workflow) ---")
     
     api_client = get_docusign_client()
     if not api_client: return "Error: DocuSign Auth Failed"
@@ -175,16 +174,18 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             'primary_contact_name': client_name,
         })
 
-        # 1. Create Draft Envelope
+        # ============================================================
+        # STEP 3: CREATE DRAFT ENVELOPE (Envelopes:create)
+        # ============================================================
         signer = Signer(
             email=client_email, name=client_name,
             role_name=args.get('signer_role_name', 'ClientSigner'),
             recipient_id="1", routing_order="1"
         )
 
+        # Load the Template
         server_template = ServerTemplate(sequence="1", template_id=template_id)
         inline_template = InlineTemplate(sequence="1", recipients=Recipients(signers=[signer]))
-
         comp_template = CompositeTemplate(
             composite_template_id="1",
             server_templates=[server_template],
@@ -192,43 +193,49 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         )
 
         envelope_def = EnvelopeDefinition(
-            status="created", 
+            status="created", # Draft mode
             email_subject=f"SOW for {project_name}",
             composite_templates=[comp_template]
         )
 
         draft = envelopes_api.create_envelope(account_id, envelope_definition=envelope_def)
         envelope_id = draft.envelope_id
-        print(f"--- Draft Envelope Created: {envelope_id} ---")
+        print(f"--- Step 3 Complete: Draft Created ({envelope_id}) ---")
 
-        # 2. Build DocGen Payload
-        form_fields = build_docgen_form_fields(doc_data)
+        # ============================================================
+        # STEP 4: GET FIELDS (DocumentGeneration:getEnvelopeDocGenFormFields)
+        # ============================================================
+        # We fetch the document structure to find the correct Document ID.
         
-        doc_gen_payload = DocGenFormFields(
-            doc_gen_form_fields=[
-                DocGenFormField(document_id="1", doc_gen_form_field_list=form_fields)
-            ]
-        )
-
-        print(f"--- Sending DocGen Data Payload ---")
+        doc_gen_info = envelopes_api.get_envelope_doc_gen_form_fields(account_id, envelope_id)
         
-        # Debug Print
-        try:
-            debug_json = api_client.sanitize_for_serialization(doc_gen_payload)
-            print(json.dumps(debug_json, indent=2))
-        except:
-            print("Could not serialize payload for debug.")
+        if not doc_gen_info.doc_gen_form_fields:
+            return "Error: No DocGen fields found in the template. Please verify your DocGen Template configuration."
 
-        # --- CRITICAL FIX: Use Positional Argument ---
-        # We pass doc_gen_payload as the 3rd argument directly.
-        # This bypasses the "unexpected keyword argument" error.
+        # Extract the valid Document ID from the response
+        # Usually the first document in the list is our target
+        target_doc_id = doc_gen_info.doc_gen_form_fields[0].document_id
+        print(f"--- Step 4 Complete: Found Target Document ID: {target_doc_id} ---")
+
+        # ============================================================
+        # STEP 5: UPDATE FIELDS (DocumentGeneration:updateEnvelopeDocGenFormFields)
+        # ============================================================
+        
+        # Build the payload using the ID we just found
+        payload = build_docgen_form_fields(doc_data, target_doc_id)
+
+        print(f"--- Step 5: Sending Data Payload... ---")
         envelopes_api.update_envelope_doc_gen_form_fields(
             account_id, 
             envelope_id, 
-            doc_gen_payload 
+            doc_gen_form_fields=payload 
         )
+        print(f"--- Step 5 Complete: Data Merged ---")
 
-        # 3. Send Envelope
+        # ============================================================
+        # STEP 6: SEND ENVELOPE (Envelopes:update)
+        # ============================================================
+        
         send_payload = Envelope(status="sent")
         envelopes_api.update(account_id, envelope_id, envelope=send_payload)
         
