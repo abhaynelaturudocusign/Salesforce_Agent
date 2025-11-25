@@ -63,37 +63,48 @@ def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, t
     # --- DYNAMIC PROMPT GENERATION ---
     
     if use_docgen:
-        # --- PROMPT FOR DOCGEN (WORD) ---
-        # (Keep your existing DocGen prompt here if you want to support both)
+        # --- PATH A: DOCGEN (WORD) ---
         goal = f"""
         Act as a Solution Architect for Opportunity '{opportunity_id}'.
         
         1. GATHER DATA:
-           - Get Opportunity details.
+           - Get Opportunity details (Contact Name, Email, Account Name).
            - Get Opportunity Line Items.
         
         2. PREPARE CONTENT:
-           - Calculate 'total_fixed_fee'.
-           - Create content for the SOW Word Template.
+           - Calculate 'total_fixed_fee' (sum of items).
+           - Draft 'background_text' and 'objectives_text'.
+           - Create 'Project_Scope' and 'Project_Assumptions' lists.
         
-        3. EXECUTE (USING DOCGEN TOOL):
-           Use the 'Create DocGen SOW' tool.
+        3. EXECUTE:
+           **CRITICAL:** You MUST use the tool named 'Create DocGen SOW'. 
            
-           Format 'pdf_data' to match the Word Template Merge Fields:
+           Format the input JSON exactly like this, using the specific Template ID provided below:
            {{
-               "project_background": "...", 
-               "project_start_date": "...",
-               "Project_Scope": [ {{ "Delivery_of_product": "..." }} ],
-               "Project_Assumptions": [ 
-                   {{ 
-                       "Milestone_Product": "...", 
-                       "Milestone_Description": "...",
-                       "Milestone_Date": "...", 
-                       "Milestone_Amount": "..."
-                   }}
-               ]
+               "client_name": "...",
+               "client_email": "...",
+               "account_name": "...",
+               "project_name": "...",
+               "template_id": "{template_id}",  <-- THIS INJECTS YOUR REAL GUID
+               "signer_role_name": "{signer_role_name}",
+               "opportunity_id": "{opportunity_id}",
+               "total_fixed_fee": "...",
+               "pdf_data": {{
+                   "project_background": "...", 
+                   "project_start_date": "...",
+                   "project_end_date": "...",
+                   "consultant_key_attributes": "...",
+                   "Project_Scope": [ {{ "Delivery_of_product": "..." }} ],
+                   "Project_Assumptions": [ 
+                       {{ 
+                           "Milestone_Product": "...", 
+                           "Milestone_Description": "...",
+                           "Milestone_Date": "...", 
+                           "Milestone_Amount": "..."
+                       }}
+                   ]
+               }}
            }}
-           (Include client_name, client_email, project_name, template_id, signer_role_name, opportunity_id, total_fixed_fee)
         """
     else:
         # --- PROMPT FOR COMPOSITE PDF TOOL (UPDATED WITH YOUR NEW INSTRUCTIONS) ---
