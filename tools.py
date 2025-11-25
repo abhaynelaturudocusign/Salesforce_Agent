@@ -351,7 +351,18 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         # C. Send the Advanced Update
         update_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}?advanced_update=true"
         print(f"--- Updating Custom Field via Advanced Update... ---")
-        
+        # --- 🔍 DEBUG: PRINT DRAFT PAYLOAD ---
+        print("\n" + "="*30)
+        print("🔍 DEBUG: updating custom field PAYLOAD ")
+        print("="*30)
+        try:
+            # Sanitize converts the SDK object into a JSON-serializable dict
+            fields_payload = api_client.sanitize_for_serialization(cf_update_body)
+            print(json.dumps(fields_payload, indent=2))
+        except Exception as debug_err:
+            print(f"Could not print debug JSON: {debug_err}")
+        print("="*30 + "\n")
+        # -------------------------------------
         response_cf = requests.put(update_url, headers=headers, json=cf_update_body)
         
         if response_cf.status_code != 200:
