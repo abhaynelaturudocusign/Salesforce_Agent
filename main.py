@@ -50,96 +50,115 @@ agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_pa
 
 
 # --- AGENT WORKER FUNCTIONS ---
-def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, tasks, tasks_lock, log_handler):
+def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, tasks, tasks_lock, log_handler, use_docgen):
     """Initiates the process by sending the contract."""
     print(f"🚀 Starting the deal process for Opportunity {opportunity_id} (Task: {task_id})...")
     
-    goal = f"""
-
-    Act as a Solution Architect for Opportunity '{opportunity_id}'.
-    Your job is to write a professional Statement of Work (SOW) for Opportunity '{opportunity_id}'
+    # --- DYNAMIC PROMPT GENERATION ---
     
-
-    1. GATHER DATA:
-
-       - Get Opportunity details (Contact Name, Contact Email). PAY ATTENTION to the 'Industry' and 'Opp_Description'.
-
-       - Get Opportunity Line Items (Products, Prices, Dates).
-
-    
-
-    2. ARCHITECT THE CONTENT (BE CREATIVE):
-
-       - Calculate 'total_fixed_fee' by summing the TotalPrice of all line items. Format as "5000.00" (no symbols).
-
-       - **Background:** Write a professional 3-sentence executive summary. You must connect the client's Industry (found in step 1) to the specific need for power generation. Use the 'Opp_Description' for specific context.
-
-       - **Objectives:** Write 3 strategic objectives. (e.g., "Ensure business continuity during grid outages").
-
-       - GENERATE SCOPE ITEMS:
-
-         Create a list of scope items, one for each product line item.
-        - **Detailed Scope (The "Expander"):** For EACH product line item, do not just list the name. Write a full sentence describing the implementation work.
-         * Example Input: "GenWatt 100kW"
-         * Expected Output: "Delivery, installation, and electrical integration of one GenWatt 100kW unit, including site acceptance testing."
-
-        - **Assumptions (NEW):** Generate 3 logical project assumptions based on the products sold (e.g., site access, permits, network connectivity).
-
-       - GENERATE MILESTONES (CRITICAL RULE):
-
-         Do NOT summarize the milestones into a single payment.
-
-         You MUST create a specific Milestone entry for EVERY SINGLE Line Item found.
-
-         
-
-         Logic:
-
-         - If you found 3 line items in step 1, your 'milestones' list MUST contain 3 items.
-
-         - For each item:
-
-             - 'name': Use the Product Name (e.g. "GenWatt 100kW").
-
-             - 'description': Brief description of delivery.
-
-             - 'date': Use the ServiceDate. If null, use "Upon Delivery".
-
-             - 'amount': Use the specific TotalPrice of THAT item (e.g. "$30,000").
-    
-    3. EXECUTE:
-       Use the 'Create Composite SOW' tool.
-       
-       IMPORTANT: You must format the 'pdf_data' JSON exactly matching this structure and fill the milestones table please dont summarize the milestones table with one row and also please do not add extra rows and also please do not add random dates in milestones if you didn't receive any data please leave them blank:
-       
-       {{
-           "client_name": "...",
-           "client_email": "...",
-           "account_name": "...",
-           "project_name": "...",
-           "static_legal_template_id": "{template_id}",
-           "signer_role_name": "{signer_role_name}",
-           "opportunity_id": "{opportunity_id}",
-           "total_fixed_fee": "...",
-           "pdf_data": {{
-               "background_text": "2 sentences on context...",
-               "objectives_text": "3 bullet points...",
-               "scope_items": [ 
-               {{ "title": "Product Name", "description": "YOUR EXPANDED AI-GENERATED DESCRIPTION HERE" }}
-                ],
-                "assumptions_list": [ "Assumption 1...", "Assumption 2...", "Assumption 3..." ],
-               "milestones": [
-                   {{
-                       "name": "Milestone 1", 
-                       "date": "YYYY-MM-DD", 
-                       "amount": "$1,000.00"
+    if use_docgen:
+        # --- PROMPT FOR DOCGEN (WORD) ---
+        # (Keep your existing DocGen prompt here if you want to support both)
+        goal = f"""
+        Act as a Solution Architect for Opportunity '{opportunity_id}'.
+        
+        1. GATHER DATA:
+           - Get Opportunity details.
+           - Get Opportunity Line Items.
+        
+        2. PREPARE CONTENT:
+           - Calculate 'total_fixed_fee'.
+           - Create content for the SOW Word Template.
+        
+        3. EXECUTE (USING DOCGEN TOOL):
+           Use the 'Create DocGen SOW' tool.
+           
+           Format 'pdf_data' to match the Word Template Merge Fields:
+           {{
+               "project_background": "...", 
+               "project_start_date": "...",
+               "Project_Scope": [ {{ "Delivery_of_product": "..." }} ],
+               "Project_Assumptions": [ 
+                   {{ 
+                       "Milestone_Product": "...", 
+                       "Milestone_Description": "...",
+                       "Milestone_Date": "...", 
+                       "Milestone_Amount": "..."
                    }}
                ]
            }}
-       }}
-       
-    Report the final Envelope ID.
-    """
+           (Include client_name, client_email, project_name, template_id, signer_role_name, opportunity_id, total_fixed_fee)
+        """
+    else:
+        # --- PROMPT FOR COMPOSITE PDF TOOL (UPDATED WITH YOUR NEW INSTRUCTIONS) ---
+        goal = f"""
+        Act as a Solution Architect for Opportunity '{opportunity_id}'.
+        Your job is to write a professional Statement of Work (SOW) for Opportunity '{opportunity_id}'
+        
+        1. GATHER DATA:
+           - Get Opportunity details (Contact Name, Contact Email). PAY ATTENTION to the 'Industry' and 'Opp_Description'.
+           - Get Opportunity Line Items (Products, Prices, Dates).
+        
+        2. ARCHITECT THE CONTENT (BE CREATIVE):
+           - Calculate 'total_fixed_fee' by summing the TotalPrice of all line items. Format as "5000.00" (no symbols).
+    
+           - **Background:** Write a professional 3-sentence executive summary. You must connect the client's Industry (found in step 1) to the specific need for power generation. Use the 'Opp_Description' for specific context.
+    
+           - **Objectives:** Write 3 strategic objectives. (e.g., "Ensure business continuity during grid outages").
+    
+           - GENERATE SCOPE ITEMS:
+             Create a list of scope items, one for each product line item.
+            - **Detailed Scope (The "Expander"):** For EACH product line item, do not just list the name. Write a full sentence describing the implementation work.
+             * Example Input: "GenWatt 100kW"
+             * Expected Output: "Delivery, installation, and electrical integration of one GenWatt 100kW unit, including site acceptance testing."
+    
+            - **Assumptions (NEW):** Generate 3 logical project assumptions based on the products sold (e.g., site access, permits, network connectivity).
+    
+           - GENERATE MILESTONES (CRITICAL RULE):
+             Do NOT summarize the milestones into a single payment.
+             You MUST create a specific Milestone entry for EVERY SINGLE Line Item found.
+             
+             Logic:
+             - If you found 3 line items in step 1, your 'milestones' list MUST contain 3 items.
+             - For each item:
+                 - 'name': Use the Product Name (e.g. "GenWatt 100kW").
+                 - 'description': Brief description of delivery.
+                 - 'date': Use the ServiceDate. If null, use "Upon Delivery".
+                 - 'amount': Use the specific TotalPrice of THAT item (e.g. "$30,000").
+        
+        3. EXECUTE:
+           Use the 'Create Composite SOW' tool.
+           
+           IMPORTANT: You must format the 'pdf_data' JSON exactly matching this structure and fill the milestones table please dont summarize the milestones table with one row and also please do not add extra rows and also please do not add random dates in milestones if you didn't receive any data please leave them blank:
+           
+           {{
+               "client_name": "...",
+               "client_email": "...",
+               "account_name": "...",
+               "project_name": "...",
+               "static_legal_template_id": "{template_id}",
+               "signer_role_name": "{signer_role_name}",
+               "opportunity_id": "{opportunity_id}",
+               "total_fixed_fee": "...",
+               "pdf_data": {{
+                   "background_text": "2 sentences on context...",
+                   "objectives_text": "3 bullet points...",
+                   "scope_items": [ 
+                       {{ "title": "Product Name", "description": "YOUR EXPANDED AI-GENERATED DESCRIPTION HERE" }}
+                    ],
+                    "assumptions_list": [ "Assumption 1...", "Assumption 2...", "Assumption 3..." ],
+                   "milestones": [
+                       {{
+                           "name": "Milestone 1", 
+                           "date": "YYYY-MM-DD", 
+                           "amount": "$1,000.00"
+                       }}
+                   ]
+               }}
+           }}
+           
+        Report the final Envelope ID.
+        """
 
     try:
         # --- UPDATED LINE: Pass the callback handler ---

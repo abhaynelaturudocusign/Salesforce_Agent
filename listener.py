@@ -157,6 +157,10 @@ def index():
 def start_closing():
     """Receives Opp IDs, creates a task, starts agents, and returns a task ID."""
     opportunity_ids = request.form.getlist('opportunity_ids')
+
+    # Check if the toggle was checked (returns 'on' if checked, None if not)
+    use_docgen = request.form.get('use_docgen') == 'on'
+
     if not opportunity_ids:
         return jsonify({"status": "error", "message": "No opportunities selected."}), 400
 
@@ -174,7 +178,16 @@ def start_closing():
             "results": {}
         }
 
-    template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"
+    #template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"
+
+    # You might have two different template IDs now:
+    # 1. The PDF/Legal Combo Template
+    # 2. The DocGen Word Template
+    if use_docgen:
+        template_id = "cbffdd39-83fe-441c-a17c-83763e63df6f" 
+    else:
+        template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"
+
     signer_role = "ClientSigner"
 
     for opp_id in opportunity_ids:
