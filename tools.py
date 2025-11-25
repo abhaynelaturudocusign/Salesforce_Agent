@@ -312,29 +312,53 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         # STEP 4: ADD CUSTOM FIELDS (PUT /envelopes/{id}?advanced_update=true)
         # ============================================================
         # This is the critical fix you identified.
+
+        # A. Fetch Existing Custom Fields to find the fieldId
+        cf_list_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}/custom_fields"
+        print(f"--- Fetching Custom Fields from: {cf_list_url} ---")
         
-        cf_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}?advanced_update=true"
+        cf_response = requests.get(cf_list_url, headers=headers)
+        field_id = None
         
-        cf_body = {
-            "customFields": {
-                "textCustomFields": [
-                    {
-                        "name": "opportunity_id",
-                        "value": opportunity_id,
-                        "fieldId": "20000000002923311",
-                        "show": "false" # Kept false for internal ID, change to "true" if you want signers to see it
-                    }
-                ]
-            }
+        if cf_response.status_code == 200:
+            cf_data = cf_response.json()
+            text_fields = cf_data.get('textCustomFields', [])
+            
+            # Loop to find 'opportunity_id'
+            for field in text_fields:
+                if field.get('name') == 'opportunity_id':
+                    field_id = field.get('fieldId')
+                    print(f"--- Found existing 'opportunity_id' with fieldId: {field_id} ---")
+                    break
+        
+        # B. Construct the Update Payload
+        cf_item = {
+            "name": "opportunity_id",
+            "value": opportunity_id,
+            "show": "false"
         }
         
-        print(f"--- Applying Custom Fields via Advanced Update... ---")
-        response_cf = requests.put(cf_url, headers=headers, json=cf_body)
+        # CRITICAL: If we found an ID, we must include it to perform an UPDATE
+        if field_id:
+            cf_item["fieldId"] = field_id
+            
+        cf_update_body = {
+            "customFields": {
+                "textCustomFields": [cf_item]
+            }
+        }
+
+        # C. Send the Advanced Update
+        update_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}?advanced_update=true"
+        print(f"--- Updating Custom Field via Advanced Update... ---")
+        
+        response_cf = requests.put(update_url, headers=headers, json=cf_update_body)
         
         if response_cf.status_code != 200:
-            return f"Error Setting Custom Fields: {response_cf.text}"
-            
-        print(f"--- Custom Fields Applied Successfully ---")
+             # Fallback: If advanced update fails, print error but try to proceed
+             print(f"⚠️ Warning: Failed to update custom field: {response_cf.text}")
+        else:
+             print(f"--- Custom Field Updated Successfully ---")
 
         # ============================================================
         # STEP 4: SEND ENVELOPE (PUT /envelopes/{id})
