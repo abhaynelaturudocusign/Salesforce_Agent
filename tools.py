@@ -312,11 +312,32 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
 def create_composite_sow_envelope(tool_input: str) -> str:
     print(f"--- Calling Tool: create_composite_sow_envelope ---")
     
+    # --- DEBUG: Print what the Agent sent ---
+    print(f"🔥 DEBUG RAW INPUT: '{tool_input}'")
+
     api_client = get_docusign_client()
     if not api_client: return "Error: DocuSign Auth Failed"
 
     try:
-        args = json.loads(tool_input)
+        # --- FIX: Sanitize Input ---
+        # 1. Remove Markdown code blocks if present
+        clean_input = tool_input.strip()
+        if clean_input.startswith("```json"):
+            clean_input = clean_input[7:]
+        if clean_input.startswith("```"):
+            clean_input = clean_input[3:]
+        if clean_input.endswith("```"):
+            clean_input = clean_input[:-3]
+        
+        clean_input = clean_input.strip()
+        
+        # 2. Parse JSON
+        if not clean_input:
+            return "Error: Agent provided empty input. JSON required."
+            
+        args = json.loads(clean_input)
+
+        # ... (Standard Argument Extraction) ...
         client_name = args.get('client_name')
         client_email = args.get('client_email')
         project_name = args.get('project_name')
