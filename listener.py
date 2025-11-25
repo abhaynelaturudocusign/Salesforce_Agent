@@ -184,7 +184,7 @@ def start_closing():
     # 1. The PDF/Legal Combo Template
     # 2. The DocGen Word Template
     if use_docgen:
-        template_id = "cbffdd39-83fe-441c-a17c-83763e63df6f" 
+        template_id = "dba32743-cb50-42d1-beec-abd6a2d91a70" 
     else:
         template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"
 
