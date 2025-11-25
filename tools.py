@@ -151,7 +151,6 @@ def build_docgen_form_fields(data_dict):
 def create_docgen_sow_envelope(tool_input: str) -> str:
     """
     Generates an SOW using a SINGLE DocuSign DocGen (Word) Template.
-    Input must be a JSON string with keys matching the DocGen fields.
     """
     print(f"--- Calling Tool: create_docgen_sow_envelope (Single Template) ---")
     
@@ -168,7 +167,6 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         project_name = args.get('project_name')
         template_id = args.get('template_id') 
         
-        # 1. Prepare Data Dictionary
         doc_data = args.get('pdf_data', {})
         doc_data.update({
             'Account_Label': args.get('account_name'),
@@ -177,7 +175,7 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             'primary_contact_name': client_name,
         })
 
-        # 2. Create Envelope Definition (Draft Mode)
+        # 1. Create Draft Envelope
         signer = Signer(
             email=client_email, name=client_name,
             role_name=args.get('signer_role_name', 'ClientSigner'),
@@ -199,12 +197,11 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             composite_templates=[comp_template]
         )
 
-        # 3. Create Draft
         draft = envelopes_api.create_envelope(account_id, envelope_definition=envelope_def)
         envelope_id = draft.envelope_id
         print(f"--- Draft Envelope Created: {envelope_id} ---")
 
-        # 4. Push Data to DocGen Fields
+        # 2. Build DocGen Payload
         form_fields = build_docgen_form_fields(doc_data)
         
         doc_gen_payload = DocGenFormFields(
@@ -215,23 +212,23 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
 
         print(f"--- Sending DocGen Data Payload ---")
         
-        # --- 🔍 DEBUG: PRINT JSON PAYLOAD ---
+        # Debug Print
         try:
-            payload_debug = api_client.sanitize_for_serialization(doc_gen_payload)
-            print(json.dumps(payload_debug, indent=2))
-        except Exception as debug_err:
-            print(f"Could not print debug JSON: {debug_err}")
-        print("-----------------------------------")
-        # ------------------------------------
+            debug_json = api_client.sanitize_for_serialization(doc_gen_payload)
+            print(json.dumps(debug_json, indent=2))
+        except:
+            print("Could not serialize payload for debug.")
 
+        # --- CRITICAL FIX: Use Positional Argument ---
+        # We pass doc_gen_payload as the 3rd argument directly.
+        # This bypasses the "unexpected keyword argument" error.
         envelopes_api.update_envelope_doc_gen_form_fields(
             account_id, 
             envelope_id, 
-            # FIX: The keyword argument is envelope_doc_gen_form_fields
-            envelope_doc_gen_form_fields=doc_gen_payload 
+            doc_gen_payload 
         )
 
-        # 5. Send
+        # 3. Send Envelope
         send_payload = Envelope(status="sent")
         envelopes_api.update(account_id, envelope_id, envelope=send_payload)
         
