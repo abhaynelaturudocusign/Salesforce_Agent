@@ -20,7 +20,13 @@ tools = [
     Tool(name="Download and Attach DocuSign Document to Salesforce", func=download_and_attach_document_to_salesforce, description="..."),
     Tool(name="Update Opportunity Stage", func=update_opportunity_stage, description="..."),
     Tool(name="Get Line Items", func=get_opportunity_line_items, description="Gets product line items."),
-    Tool(name="Create Composite SOW", func=create_composite_sow_envelope, description="Generates and sends an SOW. Input must comprise client details and a 'pdf_data' object containing scope, background, and milestones.")
+    Tool(name="Create Composite SOW", func=create_composite_sow_envelope, description="Generates and sends an SOW. Input must comprise client details and a 'pdf_data' object containing scope, background, and milestones."),
+    # --- Tool B: The DocGen Word Generator ---
+    Tool(
+        name="Create DocGen SOW", 
+        func=create_docgen_sow_envelope, 
+        description="Generates an SOW using a WORD TEMPLATE (DocGen). Use this if asked for 'DocGen' or 'Word'."
+    )
 ] # Note: Abbreviated descriptions for brevity. Use your full descriptions.
 
 template = """
