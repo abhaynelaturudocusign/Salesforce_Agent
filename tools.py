@@ -179,7 +179,7 @@ def build_docgen_json_raw(data_dict):
 
 # --- TOOL: CREATE DOCGEN ENVELOPE (HYBRID SDK + RAW API) ---
 def create_docgen_sow_envelope(tool_input: str) -> str:
-    print(f"--- Calling Tool: create_docgen_sow_envelope (Raw API Flow) ---")
+    print(f"--- Calling Tool: create_docgen_sow_envelope (Raw API Flow + Custom Fields) ---")
     
     # 1. Auth using SDK for convenience in Step 1
     # We also get the raw token for Steps 2-4
@@ -201,6 +201,10 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         project_name = args.get('project_name')
         template_id = args.get('template_id') 
         
+        opportunity_id = args.get('opportunity_id', '') # <--- Extract Opp ID
+
+
+
         doc_data = args.get('pdf_data', {})
         doc_data.update({
             'Account_Label': args.get('account_name'),
@@ -218,8 +222,28 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             recipient_id="1", routing_order="1"
         )
 
+        # --- NEW: Create Custom Fields for Webhook Tracking ---
+
+        opp_id_field = TextCustomField(name='opportunity_id', value=opportunity_id, show='false')
+
+        custom_fields = CustomFields(text_custom_fields=[opp_id_field])
+
+        # ------------------------------------------------------
+
         server_template = ServerTemplate(sequence="1", template_id=template_id)
-        inline_template = InlineTemplate(sequence="1", recipients=Recipients(signers=[signer]))
+        # Attach recipients AND custom fields to the Inline Template
+
+        # This ensures they merge correctly with the Server Template
+
+        inline_template = InlineTemplate(
+
+            sequence="1", 
+
+            recipients=Recipients(signers=[signer]),
+
+            custom_fields=custom_fields # <--- Added here
+
+        )
         comp_template = CompositeTemplate(
             composite_template_id="1",
             server_templates=[server_template],
