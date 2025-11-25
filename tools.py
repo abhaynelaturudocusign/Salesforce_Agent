@@ -151,7 +151,7 @@ def build_docgen_form_fields(data_dict, target_document_id):
     )
 
 def create_docgen_sow_envelope(tool_input: str) -> str:
-    print(f"--- Calling Tool: create_docgen_sow_envelope (4-Step Workflow) ---")
+    print(f"--- Calling Tool: create_docgen_sow_envelope (Corrected Param Name) ---")
     
     api_client = get_docusign_client()
     if not api_client: return "Error: DocuSign Auth Failed"
@@ -175,7 +175,7 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         })
 
         # ============================================================
-        # STEP 3: CREATE DRAFT ENVELOPE (Envelopes:create)
+        # STEP 3: CREATE DRAFT ENVELOPE
         # ============================================================
         signer = Signer(
             email=client_email, name=client_name,
@@ -183,7 +183,6 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             recipient_id="1", routing_order="1"
         )
 
-        # Load the Template
         server_template = ServerTemplate(sequence="1", template_id=template_id)
         inline_template = InlineTemplate(sequence="1", recipients=Recipients(signers=[signer]))
         comp_template = CompositeTemplate(
@@ -193,47 +192,46 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         )
 
         envelope_def = EnvelopeDefinition(
-            status="created", # Draft mode
+            status="created", 
             email_subject=f"SOW for {project_name}",
             composite_templates=[comp_template]
         )
 
         draft = envelopes_api.create_envelope(account_id, envelope_definition=envelope_def)
         envelope_id = draft.envelope_id
-        print(f"--- Step 3 Complete: Draft Created ({envelope_id}) ---")
+        print(f"--- Draft Envelope Created: {envelope_id} ---")
 
         # ============================================================
-        # STEP 4: GET FIELDS (DocumentGeneration:getEnvelopeDocGenFormFields)
+        # STEP 4: GET FIELDS
         # ============================================================
-        # We fetch the document structure to find the correct Document ID.
-        
         doc_gen_info = envelopes_api.get_envelope_doc_gen_form_fields(account_id, envelope_id)
         
         if not doc_gen_info.doc_gen_form_fields:
-            return "Error: No DocGen fields found in the template. Please verify your DocGen Template configuration."
+            return "Error: No DocGen fields found. Verify Template configuration."
 
-        # Extract the valid Document ID from the response
-        # Usually the first document in the list is our target
         target_doc_id = doc_gen_info.doc_gen_form_fields[0].document_id
-        print(f"--- Step 4 Complete: Found Target Document ID: {target_doc_id} ---")
+        print(f"--- Found Target Document ID: {target_doc_id} ---")
 
         # ============================================================
-        # STEP 5: UPDATE FIELDS (DocumentGeneration:updateEnvelopeDocGenFormFields)
+        # STEP 5: UPDATE FIELDS (With Correct Parameter Name)
         # ============================================================
         
         # Build the payload using the ID we just found
+        # This returns a DocGenFormFields object
         payload = build_docgen_form_fields(doc_data, target_doc_id)
 
-        print(f"--- Step 5: Sending Data Payload... ---")
+        print(f"--- Sending DocGen Data Payload... ---")
+        
         envelopes_api.update_envelope_doc_gen_form_fields(
             account_id, 
             envelope_id, 
-            doc_gen_form_fields=payload 
+            # --- CRITICAL FIX: Use the exact keyword from documentation ---
+            doc_gen_form_field_request=payload 
         )
-        print(f"--- Step 5 Complete: Data Merged ---")
+        print(f"--- Data Merged Successfully ---")
 
         # ============================================================
-        # STEP 6: SEND ENVELOPE (Envelopes:update)
+        # STEP 6: SEND ENVELOPE
         # ============================================================
         
         send_payload = Envelope(status="sent")
