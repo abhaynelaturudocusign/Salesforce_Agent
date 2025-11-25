@@ -166,7 +166,7 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         client_name = args.get('client_name')
         client_email = args.get('client_email')
         project_name = args.get('project_name')
-        template_id = args.get('template_id') # <--- Now represents the FULL SOW
+        template_id = args.get('template_id') 
         
         # 1. Prepare Data Dictionary
         doc_data = args.get('pdf_data', {})
@@ -184,10 +184,7 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             recipient_id="1", routing_order="1"
         )
 
-        # Use the Single Server Template
         server_template = ServerTemplate(sequence="1", template_id=template_id)
-        
-        # Inline Template adds the Recipient context
         inline_template = InlineTemplate(sequence="1", recipients=Recipients(signers=[signer]))
 
         comp_template = CompositeTemplate(
@@ -197,7 +194,7 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         )
 
         envelope_def = EnvelopeDefinition(
-            status="created", # Draft
+            status="created", 
             email_subject=f"SOW for {project_name}",
             composite_templates=[comp_template]
         )
@@ -212,16 +209,26 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         
         doc_gen_payload = DocGenFormFields(
             doc_gen_form_fields=[
-                # document_id="1" targets the main Word file in your template
                 DocGenFormField(document_id="1", doc_gen_form_field_list=form_fields)
             ]
         )
 
         print(f"--- Sending DocGen Data Payload ---")
+        
+        # --- 🔍 DEBUG: PRINT JSON PAYLOAD ---
+        try:
+            payload_debug = api_client.sanitize_for_serialization(doc_gen_payload)
+            print(json.dumps(payload_debug, indent=2))
+        except Exception as debug_err:
+            print(f"Could not print debug JSON: {debug_err}")
+        print("-----------------------------------")
+        # ------------------------------------
+
         envelopes_api.update_envelope_doc_gen_form_fields(
             account_id, 
             envelope_id, 
-            doc_gen_form_fields=doc_gen_payload
+            # FIX: The keyword argument is envelope_doc_gen_form_fields
+            envelope_doc_gen_form_fields=doc_gen_payload 
         )
 
         # 5. Send
