@@ -9,7 +9,7 @@ import datetime
 from dotenv import load_dotenv
 from docusign_esign import ApiClient, EnvelopesApi, EnvelopeDefinition, Document, Signer, SignHere, Tabs, Recipients, TemplateRole, TextCustomField, CustomFields, Tabs, Text, Number
 from simple_salesforce import Salesforce
-from docusign_esign import CompositeTemplate, ServerTemplate, InlineTemplate, Document
+from docusign_esign import CompositeTemplate, ServerTemplate, InlineTemplate, Document,DocGenFormField, DocGenFormFields
 from tools_pdf import generate_scope_and_milestones_pdf # Import the new PDF tool
 # ... other imports ...
 
