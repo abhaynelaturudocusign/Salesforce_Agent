@@ -5,209 +5,208 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>The Closer AI</title>
     <style>
-        /* --- GLOBAL RESET --- */
-        * { box-sizing: border-box; } /* Critical for responsive layouts */
+        /* --- GLOBAL VARIABLES & RESET --- */
+        :root {
+            --brand-color: #0070d2;
+            --docu-black: #1b1b1b;
+            --bg-color: #f4f6f9;
+        }
+        * { box-sizing: border-box; }
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background-color: #f4f6f9; 
+            background-color: var(--bg-color); 
             height: 100vh; 
             margin: 0; 
             overflow: hidden; 
         }
 
-        #main-wrapper { display: flex; width: 100%; height: 100%; transition: all 0.5s ease; }
-
-        /* --- LEFT PANEL (Table/Cards) --- */
-        #left-panel { 
-            flex: 0 0 0%; 
-            width: 0; 
-            opacity: 0; 
-            background: #f4f6f9; 
-            border-right: 1px solid #ddd; 
-            overflow-y: auto; 
-            transition: all 0.5s ease; 
-            padding: 0; 
-            position: relative; 
-            -webkit-overflow-scrolling: touch; 
+        #main-wrapper { 
+            position: relative;
+            width: 100%; 
+            height: 100%; 
         }
-        #left-panel.active { flex: 0 0 70%; width: 70%; opacity: 1; padding: 2em; }
 
-        /* --- RIGHT PANEL (Chat) --- */
+        /* --- DATA PANEL --- */
+        #left-panel { 
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #f4f6f9;
+            overflow-y: auto;
+            padding: 0;
+            opacity: 0; 
+            z-index: 0;
+            pointer-events: none; 
+            transition: opacity 0.3s ease;
+            -webkit-overflow-scrolling: touch;
+        }
+        #left-panel.active { 
+            opacity: 1; 
+            z-index: 10; 
+            pointer-events: auto;
+            padding: 2em; 
+        }
+        #left-panel h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; padding-top: 10px; }
+
+        /* --- CHAT PANEL --- */
         #right-panel { 
-            flex: 1; 
             display: flex; 
             flex-direction: column; 
             background-color: #fff; 
-            box-shadow: -2px 0 10px rgba(0,0,0,0.05); 
-            z-index: 20; 
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 20;
+            box-shadow: -2px 0 20px rgba(0,0,0,0.1);
         }
-        #chat-header { padding: 20px; border-bottom: 1px solid #eee; background: #fff; display: flex; align-items: center; gap: 10px; }
-        #chat-header h2 { margin: 0; color: #032d60; font-size: 1.2rem; }
-        
-        /* Chat History */
-        #chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; background: #fff; }
-        
-        /* Chat Input */
-        #chat-input-area { padding: 20px; padding-bottom: 80px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; }
-        #chat-input { flex: 1; padding: 12px 15px; border: 1px solid #ccc; border-radius: 24px; font-size: 16px; outline: none; }
-        #send-btn { background-color: #0070d2; color: white; border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
-        /* Chat Messages */
+        /* Mode: Full Screen */
+        #right-panel.mode-full { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+
+        /* Mode: Widget */
+        #right-panel.mode-widget {
+            position: absolute;
+            bottom: 90px; right: 20px;
+            width: 400px; height: 600px; max-height: 70vh;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+        }
+        
+        /* Mode: Hidden */
+        #right-panel.mode-hidden {
+            position: absolute;
+            bottom: 90px; right: 20px;
+            width: 400px; height: 600px;
+            transform: translateY(20px) scale(0.95);
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* --- FAB (Floating Action Button) --- */
+        #chat-fab {
+            position: fixed; bottom: 20px; right: 20px;
+            width: 60px; height: 60px;
+            background-color: var(--docu-black); /* DocuSign Black */
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            cursor: pointer;
+            z-index: 100;
+            display: none; 
+            align-items: center; justify-content: center;
+            color: white;
+            transition: transform 0.2s;
+        }
+        #chat-fab:hover { transform: scale(1.05); }
+        #chat-fab.visible { display: flex; animation: popIn 0.4s ease; }
+        #chat-fab svg { width: 30px; height: 30px; }
+
+        /* --- CHAT INTERNALS --- */
+        #chat-header { 
+            padding: 15px 20px; background: #fff; border-bottom: 1px solid #eee; 
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        #chat-header h2 { margin: 0; color: var(--docu-black); font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+        #close-chat-btn { background: none; border: none; font-size: 24px; color: #999; cursor: pointer; padding: 0; display: none; }
+        #right-panel.mode-widget #close-chat-btn { display: block; }
+
+        #chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: #fff; }
+        
         .chat-row { display: flex; align-items: flex-end; gap: 10px; width: 100%; }
         .chat-row.user { flex-direction: row-reverse; }
-        .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 18px; background: #eee; color: #555; }
-        .avatar.agent { background-color: #000; color: #fff; }
-        .avatar.user { background-color: #0070d2; color: #fff; }
-        .message { max-width: 80%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.5; position: relative; animation: popIn 0.3s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .chat-row.user .message { background-color: #0070d2; color: white; border-bottom-right-radius: 2px; }
+        
+        .avatar { 
+            width: 32px; height: 32px; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; 
+            flex-shrink: 0;
+        }
+        .avatar.agent { background-color: var(--docu-black); color: #fff; }
+        .avatar.user { background-color: var(--brand-color); color: #fff; font-size: 14px; }
+        .avatar svg { width: 18px; height: 18px; }
+
+        .message { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; position: relative; animation: popIn 0.3s ease; }
+        .chat-row.user .message { background-color: var(--brand-color); color: white; border-bottom-right-radius: 2px; }
         .chat-row.agent .message { background-color: #f0f4f8; color: #16325c; border-bottom-left-radius: 2px; }
-
-        /* --- TABLE & FORM --- */
-        .form-container { 
-            position: relative; 
-            background: white; 
-            border-radius: 4px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
-            overflow: hidden; 
-            min-height: 200px; 
-        }
-
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
-        th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
         
-        /* Desktop View Mode */
-        .view-mode { display: block; }
-        .edit-mode { display: none; }
+        #chat-input-area { padding: 15px; padding-bottom: 80px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; }
+        #chat-input { flex: 1; padding: 10px 15px; border: 1px solid #ccc; border-radius: 24px; font-size: 14px; outline: none; }
+        #send-btn { background-color: var(--brand-color); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
 
-        /* --- MOBILE CARD VIEW --- */
+        /* --- TABLE, FORM, SPINNER (Existing Styles) --- */
+        .form-container { position: relative; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; min-height: 200px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 800px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; white-space: nowrap; }
+        th { background-color: #f3f3f3; color: #555; font-weight: 600; position: sticky; top: 0; z-index: 5; }
+        
+        /* Mobile Cards */
         @media (max-width: 768px) {
-            /* Mobile Tabs */
-            #mobile-tabs { display: flex; }
-            #main-wrapper { padding-top: 50px; height: calc(100vh - 50px); }
-            
-            #left-panel, #right-panel { display: none; width: 100%; height: 100%; flex: none; }
-            #left-panel.mobile-active { display: block; opacity: 1; padding: 10px; width: 100%; }
-            #right-panel.mobile-active { display: flex; }
-            #left-panel.active { width: 100%; flex: none; padding: 10px; }
-
-            /* Force Table to act like a List of Cards */
+            #left-panel.active { padding: 10px; }
+            #left-panel h2 { margin-top: 10px; } 
             table, thead, tbody, th, td, tr { display: block; width: 100%; }
-            
-            /* Hide Headers */
             thead tr { position: absolute; top: -9999px; left: -9999px; }
-            
-            /* Card Style */
-            tr { 
-                background: #fff; 
-                border: 1px solid #e5e5e5; 
-                border-radius: 8px; 
-                margin-bottom: 15px; 
-                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-                padding: 5px;
-            }
-
-            /* Cell Style (Flexbox Row) */
-            td { 
-                border: none;
-                border-bottom: 1px solid #f4f6f9; 
-                position: relative;
-                padding: 10px 15px;
-                display: flex;           /* Flexbox for alignment */
-                justify-content: space-between; /* Label left, Value right */
-                align-items: center;
-                text-align: right;
-                min-height: 40px;
-            }
-            
-            /* The Label (e.g. "Amount") */
-            td:before { 
-                content: attr(data-label); 
-                font-weight: 700;
-                color: #54698d;
-                text-align: left;
-                margin-right: 15px;
-                white-space: nowrap;
-                font-size: 0.9em;
-            }
-            
-            /* Special case for the Select Checkbox to be full width/clickable */
-            td[data-label="Select"] {
-                justify-content: flex-start;
-                background-color: #f8f9fa;
-                border-bottom: 1px solid #eee;
-                font-weight: bold;
-                color: #333;
-            }
-            td[data-label="Select"]:before { content: "Select this Deal"; margin-right: 10px; }
-
-            /* Last cell (Actions) centered */
-            td:last-child { border-bottom: none; justify-content: center; padding-top: 15px; }
-            td:last-child:before { display: none; } /* Hide label for buttons */
-
-            /* Input adjustments */
-            .email-input { width: 150px; text-align: right; }
+            tr { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); padding: 5px; }
+            td { border: none; border-bottom: 1px solid #f4f6f9; position: relative; padding: 10px 10px 10px 40%; text-align: right; min-height: 40px; display: flex; justify-content: space-between; align-items: center; }
+            td:before { content: attr(data-label); font-weight: 700; color: #54698d; text-align: left; font-size: 0.9em; position: absolute; left: 10px; }
+            td[data-label="Select"] { justify-content: flex-start; background-color: #f8f9fa; border-bottom: 1px solid #eee; padding-left: 10px; }
+            td[data-label="Select"]:before { display: none; }
+            td:last-child { border-bottom: none; justify-content: center; padding-left: 0; }
+            td:last-child:before { display: none; }
+            .form-container { overflow-x: visible; }
+            #right-panel.mode-widget { width: 90%; left: 5%; right: 5%; bottom: 90px; height: 60vh; }
         }
 
-        /* --- ELEMENTS --- */
-        #mobile-tabs { display: none; position: fixed; top: 0; left: 0; right: 0; height: 50px; background: white; border-bottom: 1px solid #ddd; z-index: 100; }
-        .tab-btn { flex: 1; border: none; background: none; font-weight: 600; color: #777; cursor: pointer; font-size: 14px; border-bottom: 3px solid transparent; }
-        .tab-btn.active { color: #0070d2; border-bottom: 3px solid #0070d2; }
-
-        button, .edit-btn, .save-btn, .view-sow-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; text-decoration: none; display: inline-block; }
+        /* Utility Classes */
+        button, .edit-btn, .save-btn, .view-sow-btn { background-color: var(--brand-color); color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; text-decoration: none; display: inline-block; }
         .view-sow-btn { background-color: #ff9800; display: none; font-weight: bold; font-size: 11px; padding: 4px 8px; margin-left: 5px; }
-        
-        /* Spinner */
-        #spinner-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.9); z-index: 50; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
-        .spinner { width: 40px; height: 40px; border: 4px solid #ddd; border-top: 4px solid #0070d2; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px;}
-        #checklist { margin-top: 10px; font-size: 12px; color: green; list-style: none; padding: 0; width: 100%; text-align: center; }
-        .completed-item { color: #04844b; background-color: #eefcf6; padding: 8px; margin-bottom: 5px; border-radius: 4px; font-size: 14px; font-weight: 600; border: 1px solid #c3e6cb; animation: fadein 0.5s; }
-        
-        /* Console */
-        #agent-console { margin-top: 25px; background-color: #1e1e1e; color: #00ff00; font-family: "Courier New", Courier, monospace; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 1px solid #333; }
-        .log-entry { margin-bottom: 5px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #333; padding-bottom: 2px;}
-
-        /* Animations */
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadein { from {top: -50px; opacity: 0;} to {top: 20px; opacity: 1;} }
-
-        /* Toggle & Toast */
         .toggle-container { display: flex; align-items: center; margin-bottom: 15px; font-size: 14px; color: #555; padding: 0 15px; margin-top: 15px; }
         .switch { position: relative; display: inline-block; width: 40px; height: 20px; margin-right: 10px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #0070d2; }
+        input:checked + .slider { background-color: var(--brand-color); }
         input:checked + .slider:before { transform: translateX(20px); }
         
+        #spinner-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.85); z-index: 50; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
+        .spinner { width: 50px; height: 50px; border: 4px solid #e0e0e0; border-top: 4px solid var(--brand-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        #loading-text { color: var(--brand-color); font-weight: 500; animation: pulse 2s infinite; }
+        #checklist { margin-top: 10px; font-size: 12px; color: green; list-style: none; padding: 0; width: 100%; text-align: center; }
+        .completed-item { color: #04844b; background-color: #eefcf6; padding: 8px; margin-bottom: 5px; border-radius: 4px; font-size: 14px; font-weight: 600; border: 1px solid #c3e6cb; animation: fadein 0.5s; }
+        
+        #agent-console { margin-top: 25px; background-color: #1e1e1e; color: #00ff00; font-family: "Courier New", Courier, monospace; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 1px solid #333; }
+        .log-entry { margin-bottom: 5px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #333; padding-bottom: 2px;}
         #toast { visibility: hidden; min-width: 300px; background-color: #04844b; color: white; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 4.5s; }
         
         .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; text-align: center; }
         .submit-btn { padding: 12px 24px; font-size: 16px; width: 100%; }
+        .view-mode { display: block; } .edit-mode { display: none; }
+        h1 { color: #032d60; margin-top: 0; font-size: 1.5em;}
 
-        h1 { color: #032d60; margin-top: 0; }
-        h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+        @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadein { from {top: -50px; opacity: 0;} to {top: 20px; opacity: 1;} }
+        @keyframes fadeout { from {top: 20px; opacity: 1;} to {top: -50px; opacity: 0;} }
     </style>
 </head>
 <body>
 
-    <div id="mobile-tabs">
-        <button class="tab-btn active" onclick="showTab('chat')">Chat</button>
-        <button class="tab-btn" onclick="showTab('data')" id="data-tab-btn">Data / Projects</button>
+    <div id="chat-fab" onclick="toggleChatWidget()">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
     </div>
 
     <div id="main-wrapper">
         <div id="left-panel">
-            <h2 style="color: #032d60; margin-top: 0;">Active Opportunities</h2>
+            <h1>Auto Generate SOWs and send for signature</h1>
+            <h2>Select the projects and ask the SOW agent to generate, send and attach SOWs</h2>
+            
             <div class="form-container">
                 <div id="spinner-overlay">
                     <div class="spinner"></div>
-                    <div id="status-text">Processing...</div>
-                    <ul id="checklist"></ul>
+                    <div id="loading-text">Initializing...</div>
+                    <ul id="completed-list"></ul>
                 </div>
+
                 <form id="deal-form">
                     <div class="toggle-container">
                         <label class="switch">
@@ -216,6 +215,7 @@
                         </label>
                         <span>Use DocuSign DocGen (Word Template)</span>
                     </div>
+
                     <table id="opp-table">
                         <thead>
                             <tr>
@@ -231,8 +231,7 @@
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="table-body">
-                            </tbody>
+                        <tbody id="table-body"></tbody>
                     </table>
                     <div class="submit-btn-container">
                         <button type="submit" formnovalidate class="submit-btn">Start Closing Selected Deals</button>
@@ -241,21 +240,27 @@
             </div>
         </div>
 
-        <div id="right-panel" class="mobile-active">
+        <div id="right-panel" class="mode-full">
             <div id="chat-header">
-                <div class="avatar agent" style="width: 30px; height: 30px; font-size: 14px;">DS</div>
+                <div class="avatar agent">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                </div>
                 <h2>SOW Operations Agent</h2>
+                <button id="close-chat-btn" onclick="toggleChatWidget()">×</button>
             </div>
+            
             <div id="chat-history">
                 <div class="chat-row agent">
                     <div class="avatar agent">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                     </div>
                     <div class="message">
-                        Hello! I am your SOW Agent. Ask me to <b>"Show open projects"</b> to get started.
+                        Hello! I am your SOW Agent. <br><br>
+                        Ask me to <b>"Show open projects"</b> to get started.
                     </div>
                 </div>
             </div>
+            
             <div id="chat-input-area">
                 <input type="text" id="chat-input" placeholder="Type command..." autocomplete="off">
                 <button id="send-btn">➤</button>
@@ -279,35 +284,39 @@
         const spinner = document.getElementById('spinner-overlay');
         const statusText = document.getElementById('status-text');
         const checklist = document.getElementById('checklist');
+        const toast = document.getElementById('toast');
+        const fab = document.getElementById('chat-fab');
         const consoleDiv = document.getElementById('agent-console');
         const consoleContent = document.getElementById('console-content');
-        const toast = document.getElementById('toast');
 
-        // --- UI HELPERS ---
-        function showTab(tabName) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            if (tabName === 'chat') {
-                rightPanel.classList.add('mobile-active');
-                leftPanel.classList.remove('mobile-active');
-                document.querySelector("button[onclick=\"showTab('chat')\"]").classList.add('active');
+        // --- LAYOUT LOGIC ---
+        function switchToTableMode() {
+            leftPanel.classList.add('active');
+            rightPanel.className = 'mode-hidden';
+            fab.classList.add('visible');
+        }
+
+        function toggleChatWidget() {
+            if (rightPanel.classList.contains('mode-hidden')) {
+                rightPanel.className = 'mode-widget';
+                setTimeout(() => chatInput.focus(), 300);
             } else {
-                rightPanel.classList.remove('mobile-active');
-                leftPanel.classList.add('mobile-active');
-                document.getElementById('data-tab-btn').classList.add('active');
+                rightPanel.className = 'mode-hidden';
             }
         }
 
+        // --- CHAT LOGIC ---
         function addMessage(text, sender) {
             const row = document.createElement('div');
             row.className = `chat-row ${sender}`;
             
             let avatarHtml = '';
             if (sender === 'agent') {
-                // Doc Icon
-                avatarHtml = `<div class="avatar agent"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>`;
+                // DocuSign Icon for Agent
+                avatarHtml = `<div class="avatar agent"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>`;
             } else {
                 // User Icon
-                avatarHtml = `<div class="avatar user"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>`;
+                avatarHtml = `<div class="avatar user"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>`;
             }
 
             row.innerHTML = `${avatarHtml}<div class="message">${text}</div>`;
@@ -315,10 +324,10 @@
             chatHistory.scrollTop = chatHistory.scrollHeight;
         }
 
-        // --- CORE LOGIC ---
         chatInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') sendMessage(); });
         document.getElementById('send-btn').addEventListener('click', sendMessage);
 
+        // FORM LOGIC
         if (form) {
             form.addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -332,14 +341,13 @@
         function sendMessage() {
             const text = chatInput.value.trim();
             if (!text) return;
+
             addMessage(text, 'user');
             chatInput.value = '';
-            
-            // If we are on mobile and user asks for data, prepare to switch tabs
-            // But we wait for backend response to confirm data arrival
 
             const selectedIds = Array.from(document.querySelectorAll('input[name="opportunity_ids"]:checked')).map(cb => cb.value);
             const useDocGen = document.getElementById('docgen-toggle') ? document.getElementById('docgen-toggle').checked : false;
+
             triggerBackendProcess(text, selectedIds, useDocGen ? 'on' : 'off');
         }
 
@@ -352,8 +360,15 @@
             .then(res => res.json())
             .then(data => {
                 if (data.message) addMessage(data.message, 'agent');
-                if (data.action === 'render_table') renderTable(data.data);
-                else if (data.action === 'start_polling') startProcess(data.task_id);
+
+                if (data.action === 'render_table') {
+                    renderTable(data.data);
+                    switchToTableMode();
+                } 
+                else if (data.action === 'start_polling') {
+                    leftPanel.classList.add('active'); // Ensure table is visible
+                    startProcess(data.task_id);
+                }
             })
             .catch(err => {
                 addMessage("Error connecting to agent.", 'agent');
@@ -362,14 +377,6 @@
         }
 
         function renderTable(data) {
-            // Desktop slide-out
-            leftPanel.classList.add('active');
-            
-            // Mobile Auto-Switch to Data Tab
-            if (window.innerWidth <= 768) {
-                showTab('data');
-            }
-
             tableBody.innerHTML = '';
             if (!data || data.length === 0) {
                 tableBody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;">No records found.</td></tr>';
@@ -403,7 +410,6 @@
                 
                 const prodCount = opp.ProductCount !== undefined ? opp.ProductCount : '-';
 
-                // NOTE: Added data-label attributes for Mobile Card View
                 row.innerHTML = `
                     <td data-label="Select"><input type="checkbox" name="opportunity_ids" value="${opp.Id}" ${isDisabled ? 'disabled' : ''}></td>
                     <td data-label="Project ID"><small style="color:#999">${opp.Id}</small></td>
@@ -431,11 +437,13 @@
         }
 
         function startProcess(taskId) {
-            // Mobile: Ensure we are looking at the data tab to see spinner
-            if (window.innerWidth <= 768) showTab('data');
-
             spinner.style.display = 'flex';
             if(checklist) checklist.innerHTML = '';
+            
+            // Show console when processing starts
+            if (rightPanel.classList.contains('mode-hidden')) {
+                toggleChatWidget();
+            }
             consoleDiv.style.display = 'block'; 
             consoleContent.innerHTML = '<div class="log-entry">Starting process...</div>';
             
@@ -487,15 +495,13 @@
                             setTimeout(() => { spinner.style.display = 'none'; }, 2000);
                             toast.className = 'show';
                             setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
-                            // Also notify in chat
-                            addMessage("✅ Tasks completed. You can view the SOW links in the table.", 'agent');
+                            addMessage("✅ All tasks completed successfully.", 'agent');
                         }
                     })
                     .catch(err => console.error("Poll error:", err));
             }, 1500);
         }
 
-        // ... (Keep existing editEmail and saveEmail functions) ...
         function editEmail(editButton) {
             const row = editButton.closest('tr');
             row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
@@ -522,10 +528,6 @@
                 } else {
                     alert('Error saving email: ' + data.message);
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred. Please check the console.');
             });
         }
     </script>
