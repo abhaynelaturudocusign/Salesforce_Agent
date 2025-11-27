@@ -46,44 +46,97 @@ sf = Salesforce(
 HISTORY_FILE = "sow_history.json"
 
 def log_deal_to_history(deal_data):
-    """Appends a successfully closed deal to the local JSON ledger."""
+    """
+    Appends a successfully closed deal to the local JSON ledger.
+    """
+    print(f"--- 💾 MEMORY: Attempting to log deal for {deal_data.get('project_name')} ---")
+    
     history = []
-    # 1. Load existing
+    
+    # 1. Load existing history if file exists
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, 'r') as f:
-                history = json.load(f)
-        except: pass
+                content = f.read()
+                if content.strip(): # Check if not empty
+                    history = json.loads(content)
+        except Exception as e:
+            print(f"⚠️ Warning: Could not read existing history file: {e}. Starting fresh.")
+            history = []
     
-    # --- NEW: Store Envelope ID and Link ---
-    env_id = deal_data.get('envelope_id')
-
-    # 2. Add new record (formatted to match UI expectations)
+    # 2. Create Record
+    # We use .get() with defaults to prevent KeyErrors
     record = {
-        "Id": deal_data.get('opportunity_id'),
-        "Name": deal_data.get('project_name'),
-        "Amount": deal_data.get('total_fixed_fee'),
-        "PrimaryContactName": deal_data.get('client_name'),
-        "PrimaryContactEmail": deal_data.get('client_email'),
-        "CloseDate": datetime.datetime.now().strftime("%Y-%m-%d"), # Sent Date
-        "ProductCount": "N/A", # Or calculate if available
+        "Id": deal_data.get('opportunity_id', 'Unknown'),
+        "Name": deal_data.get('project_name', 'Unknown Project'),
+        "Amount": deal_data.get('total_fixed_fee', '0'),
+        "PrimaryContactName": deal_data.get('client_name', 'Unknown'),
+        "PrimaryContactEmail": deal_data.get('client_email', 'Unknown'),
+        "CloseDate": datetime.datetime.now().strftime("%Y-%m-%d"),
         "Status": "SOW Sent",
-        "EnvelopeId": env_id,
-        "DocuSignLink": f"https://apps-d.docusign.com/send/documents/details/{env_id}" if env_id else "N/A"
+        "EnvelopeId": deal_data.get('envelope_id', 'N/A'),
+        "DocuSignLink": f"https://apps-d.docusign.com/send/documents/details/{deal_data.get('envelope_id')}" if deal_data.get('envelope_id') else "N/A"
     }
-    history.insert(0, record) # Add to top
     
-    # 3. Save
-    with open(HISTORY_FILE, 'w') as f:
-        json.dump(history, f, indent=2)
+    # 3. Add to history (Newest first)
+    history.insert(0, record)
+    
+    # 4. Write back to file
+    try:
+        with open(HISTORY_FILE, 'w') as f:
+            json.dump(history, f, indent=2)
+        print(f"✅ MEMORY: Successfully saved to {HISTORY_FILE}")
+    except Exception as e:
+        print(f"❌ MEMORY ERROR: Could not write to file: {e}")
 
-def get_local_history() -> str:
-    """Fetches the list of locally logged SOWs."""
+def get_local_history(tool_input: str = "") -> str:
+    """
+    Returns the full JSON list of all sent SOWs/closed deals.
+    Input is ignored but required by LangChain.
+    """
     print("--- Calling Tool: get_local_history ---")
     if not os.path.exists(HISTORY_FILE):
         return "[]"
-    with open(HISTORY_FILE, 'r') as f:
-        return f.read()
+    try:
+        with open(HISTORY_FILE, 'r') as f:
+            return f.read()
+    except Exception as e:
+        return f"Error reading history: {e}"
+
+def search_history_for_chat(query: str) -> str:
+    """
+    Searches the local SOW history for a specific project or client.
+    Input: The search term (e.g., 'United Oil' or 'Barbara').
+    """
+    print(f"--- Calling Tool: search_history_for_chat for: '{query}' ---")
+    
+    if not os.path.exists(HISTORY_FILE):
+        return "No history file found. No SOWs have been sent yet."
+    
+    try:
+        with open(HISTORY_FILE, 'r') as f:
+            history = json.load(f)
+            
+        results = []
+        query_lower = query.lower()
+        
+        for record in history:
+            # Search across relevant fields
+            name_match = query_lower in record.get('Name', '').lower()
+            contact_match = query_lower in record.get('PrimaryContactName', '').lower()
+            id_match = query_lower in record.get('Id', '').lower()
+            
+            if name_match or contact_match or id_match:
+                results.append(record)
+        
+        if not results:
+            return f"No records found matching '{query}' in the history."
+            
+        # Return formatted JSON so the Agent can read it easily
+        return json.dumps(results, indent=2)
+        
+    except Exception as e:
+        return f"Error searching history: {e}"
 
 # --- ADD THIS NEW FUNCTION ---
 def get_docusign_client():

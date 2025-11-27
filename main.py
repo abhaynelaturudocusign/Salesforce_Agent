@@ -69,12 +69,17 @@ chat_tools = [
     Tool(
         name="Fetch Open Projects",
         func=get_open_opportunities,
-        description="Use this when the user wants to see a list of active, open, or new opportunities/projects."
+        description="Returns a JSON list of active/open opportunities from Salesforce."
     ),
     Tool(
-        name="Search History",
-        func=search_history_for_chat, # <--- Make sure this is imported from tools.py
-        description="Use this to find information about PAST, CLOSED, or SENT deals. Useful for questions like 'Did we send to United Oil?' or 'Get me the link for Acme'."
+        name="Search History Context",
+        func=search_history_for_chat,
+        description="Searches the local database of SENT/CLOSED deals. Use this when the user asks about a specific client, project, or person (e.g. 'Did we send to Barbara?'). Returns the deal details and DocuSign link."
+    ),
+    Tool(
+        name="Fetch Full History Log",
+        func=get_local_history,
+        description="Returns the FULL list of all past deals. Use this ONLY if the user asks to see the 'history table' or 'all sent SOWs'."
     )
 ]
 
