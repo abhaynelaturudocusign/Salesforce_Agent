@@ -1,5 +1,6 @@
 # main.py
 import os
+import re
 from langchain_openai import AzureChatOpenAI
 from langchain.agents import AgentExecutor, Tool, create_react_agent
 from langchain.prompts import PromptTemplate
@@ -69,17 +70,18 @@ chat_tools = [
     Tool(
         name="Fetch Open Projects",
         func=get_open_opportunities,
-        description="Returns a JSON list of active/open opportunities from Salesforce."
+        description="Returns active opportunities. MANDATORY: If you use this tool, your Final Answer MUST start with '[RENDER_TABLE]'."
     ),
     Tool(
         name="Search History Context",
         func=search_history_for_chat,
-        description="Searches the local database of SENT/CLOSED deals. Use this when the user asks about a specific client, project, or person (e.g. 'Did we send to Barbara?'). Returns the deal details and DocuSign link."
+        # --- UPDATED DESCRIPTION ---
+        description="Searches past/closed SOWs. MANDATORY: If you find matches, start Final Answer with '[RENDER_SEARCH: <query>]'. Example: '[RENDER_SEARCH: Barbara] Here is the history for Barbara...'"
     ),
     Tool(
         name="Fetch Full History Log",
         func=get_local_history,
-        description="Returns the FULL list of all past deals. Use this ONLY if the user asks to see the 'history table' or 'all sent SOWs'."
+        description="Returns the full list of past deals. MANDATORY: If you use this tool, your Final Answer MUST start with '[RENDER_HISTORY]'."
     )
 ]
 
@@ -147,32 +149,52 @@ def handle_chat_interaction(user_message):
         # Parse the Agent's decision tags
         action = "none"
         clean_text = final_text
+        data = None
+
+        # --- LOGIC ROUTER ---
         
-        if "[RENDER_TABLE]" in final_text:
+        # 1. Render Open Projects
+        if "[RENDER_TABLE]" in final_text or "[RENDER_OPEN]" in final_text:
             action = "render_table"
-            clean_text = final_text.replace("[RENDER_TABLE]", "").strip()
-            # If the agent fetched data, we need to re-fetch it for the UI 
-            # (Or, ideally, the tool returns it, but for now we re-fetch to keep it simple)
-            data_payload = get_open_opportunities() 
+            clean_text = final_text.replace("[RENDER_TABLE]", "").replace("[RENDER_OPEN]", "").strip()
+            data = json.loads(get_open_opportunities()) 
         
+        # 2. Render Full History
+        elif "[RENDER_HISTORY]" in final_text:
+            action = "render_table"
+            clean_text = final_text.replace("[RENDER_HISTORY]", "").strip()
+            data = json.loads(get_local_history()) 
+
+        # 3. Render Specific Search Results (NEW)
+        elif "[RENDER_SEARCH:" in final_text:
+            # Extract the query using Regex
+            match = re.search(r"\[RENDER_SEARCH\s*:\s*(.*?)\]", final_text)
+            if match:
+                query = match.group(1).strip()
+                action = "render_table"
+                clean_text = final_text.replace(match.group(0), "").strip()
+                
+                # Re-run search to get the specific rows for the UI
+                search_res = search_history_for_chat(query)
+                
+                # Safety: Ensure we got a list back
+                if search_res.strip().startswith("["):
+                    data = json.loads(search_res)
+                else:
+                    # If search returned a text message (e.g. "No results"), treat as chat only
+                    action = "none"
+                    data = []
+
+        # 4. Trigger Closing
         elif "[TRIGGER_CLOSING]" in final_text:
             action = "trigger_closing"
             clean_text = final_text.replace("[TRIGGER_CLOSING]", "").strip()
-            data_payload = None
         
-        else:
-            # It's just a chat response (e.g. "Here is the link for United Oil...")
-            data_payload = None
-
-        return {
-            "response": clean_text,
-            "action": action,
-            "data": json.loads(data_payload) if action == "render_table" else None
-        }
+        return {"response": clean_text, "action": action, "data": data}
 
     except Exception as e:
         print(f"Agent Error: {e}")
-        return {"response": "I encountered an error processing your request.", "action": "none"}
+        return {"response": f"I encountered an error: {e}", "action": "none"}
 
 # --- AGENT WORKER FUNCTIONS ---
 def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, tasks, tasks_lock, log_handler, use_docgen):
