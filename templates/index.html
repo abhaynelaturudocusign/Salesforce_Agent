@@ -367,6 +367,52 @@
         addMessage("I've found " + data.length + " open projects. Select the ones you want and click <b>'Start Closing'</b> or ask me to <b>'Close selected'</b>.", 'agent');
     }
 
+    function startProcess(taskId) {
+            if(spinner) spinner.style.display = 'flex';
+            if(checklist) checklist.innerHTML = '';
+            
+            const interval = setInterval(() => {
+                fetch(`/task-status/${taskId}`)
+                    .then(res => res.json())
+                    .then(state => {
+                        if (state.current_step && statusText) statusText.innerText = state.current_step;
+                        
+                        if (state.finished_deals && checklist) {
+                            state.finished_deals.forEach(deal => {
+                                if (!document.getElementById(`chk-${deal}`)) {
+                                    const d = document.createElement('div');
+                                    d.id = `chk-${deal}`;
+                                    d.className = 'completed-item';
+                                    d.innerHTML = `✅ Sent to ${deal}`;
+                                    checklist.appendChild(d);
+                                }
+                            });
+                        }
+                        
+                        if (state.results) {
+                             for (const [oppId, envId] of Object.entries(state.results)) {
+                                 const row = document.getElementById(`row-${oppId}`);
+                                 if (row) {
+                                     const btn = row.querySelector('.view-sow-btn');
+                                     if(btn) {
+                                         btn.href = `https://apps-d.docusign.com/send/documents/details/${envId}`;
+                                         btn.style.display = 'inline-block';
+                                     }
+                                 }
+                             }
+                        }
+
+                        if (state.status === 'completed') {
+                            clearInterval(interval);
+                            if(statusText) statusText.innerText = "Done!";
+                            setTimeout(() => { if(spinner) spinner.style.display = 'none'; }, 2000);
+                            addMessage("✅ All tasks completed successfully.", 'agent');
+                        }
+                    })
+                    .catch(err => console.error("Poll error:", err));
+            }, 1500);
+        }
+
     // --- FORM BUTTON LOGIC (Keep existing logic to sync with Chat) ---
     form.addEventListener('submit', function(e) {
         e.preventDefault();
