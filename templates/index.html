@@ -22,167 +22,181 @@
         }
 
         #main-wrapper { 
-            display: flex;
+            display: flex; 
             width: 100%; 
             height: 100%; 
             position: relative;
         }
 
-        /* --- LEFT PANEL (Data Table) --- */
+        /* --- LEFT PANEL (Table) --- */
         #left-panel { 
-            flex: 0 0 0; /* Start collapsed (Width 0%) */
-            width: 0;
-            opacity: 0; 
-            background: #f4f6f9;
-            border-right: 1px solid #ddd;
-            overflow-y: auto;
-            padding: 0;
+            flex: 0 0 0; width: 0; opacity: 0; 
+            background: #f4f6f9; 
+            border-right: 1px solid #ddd; 
+            overflow-y: auto; 
+            padding: 0; 
             transition: flex 0.6s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.4s ease;
             -webkit-overflow-scrolling: touch;
         }
-        
-        /* DESKTOP ACTIVE STATE: Split Screen */
-        #left-panel.active { 
-            flex: 0 0 70%; /* Takes 70% of screen */
-            width: 70%;
-            opacity: 1; 
-            padding: 2em; 
-            pointer-events: auto;
-        }
-
+        #left-panel.active { flex: 0 0 70%; width: 70%; opacity: 1; padding: 2em; }
         #left-panel h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; padding-top: 10px; }
 
         /* --- RIGHT PANEL (Chat) --- */
         #right-panel { 
-            flex: 1; /* Takes remaining space (100% initially, 30% when split) */
-            display: flex; 
-            flex-direction: column; 
+            flex: 1; display: flex; flex-direction: column; 
             background-color: #fff; 
             transition: flex 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
-            z-index: 20;
+            z-index: 20; 
             box-shadow: -2px 0 20px rgba(0,0,0,0.05);
             position: relative;
         }
 
-        /* --- FAB (Floating Action Button) --- */
+        /* --- TABLE STYLES (Desktop Default) --- */
+        .form-container { position: relative; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; min-height: 200px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 800px; }
+        th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; white-space: nowrap; }
+        th { background-color: #f3f3f3; color: #555; font-weight: 600; position: sticky; top: 0; z-index: 5; }
+
+        /* --- MOBILE RESPONSIVE STYLES (The Fix) --- */
+        @media (max-width: 768px) {
+            /* Layout Adjustments */
+            #left-panel.active { flex: 0 0 100%; width: 100%; padding: 10px; }
+            .form-container { overflow-x: visible; background: transparent; box-shadow: none; }
+
+            /* Force Table to display as Cards */
+            table, thead, tbody, th, td, tr { display: block; width: 100%; }
+            
+            /* Hide Desktop Headers */
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+            
+            /* Card Container */
+            tr { 
+                background: #fff; 
+                border: 1px solid #e5e5e5; 
+                border-radius: 8px; 
+                margin-bottom: 15px; 
+                box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+                padding: 0; /* Clean padding */
+                overflow: hidden;
+            }
+            
+            /* Card Row (Side-by-Side) */
+            td { 
+                display: flex; /* Flexbox prevents overlap */
+                justify-content: space-between; /* Push apart */
+                align-items: center; /* Vertically center */
+                border-bottom: 1px solid #f4f6f9; 
+                position: relative;
+                padding: 12px 15px; /* Comfortable touch target */
+                text-align: right;
+                min-height: 45px;
+                white-space: normal; /* Allow wrapping text */
+            }
+            
+            /* The Label (Left Side) */
+            td:before { 
+                content: attr(data-label); 
+                font-weight: 700;
+                color: #54698d;
+                text-align: left;
+                flex: 0 0 40%; /* Force label to take 40% width */
+                padding-right: 10px;
+                font-size: 0.9em;
+            }
+            
+            /* The Content (Right Side) */
+            td > * { 
+                flex: 1; 
+                text-align: right; 
+                word-break: break-word; 
+            }
+
+            /* Special Styling for Checkbox Row */
+            td[data-label="Select"] {
+                background-color: #f8f9fa;
+                border-bottom: 1px solid #eee;
+                justify-content: flex-start;
+            }
+            td[data-label="Select"]:before { 
+                content: "Select Deal"; /* Explicit label */
+                flex: 0 0 auto; 
+                margin-right: 10px; 
+            }
+            
+            /* Actions Row */
+            td:last-child { 
+                border-bottom: none; 
+                justify-content: center; 
+                padding: 15px; 
+                background: #fafafa;
+            }
+            td:last-child:before { display: none; } /* Hide label */
+
+            /* Input Fixes */
+            .email-input { width: 100%; text-align: right; }
+        }
+
+        /* --- CHAT WIDGET STYLES --- */
+        #right-panel.mode-widget {
+            position: absolute; bottom: 90px; right: 20px; width: 400px; height: 600px; max-height: 70vh;
+            border-radius: 12px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+            z-index: 50;
+        }
+        /* Mobile Widget */
+        @media (max-width: 768px) {
+            #right-panel.mode-widget {
+                width: 92%; left: 4%; right: 4%; bottom: 90px; height: 60vh;
+            }
+        }
+        #right-panel.mode-hidden { display: none; }
+
+        /* --- FAB --- */
         #chat-fab {
-            position: fixed; bottom: 20px; right: 20px;
-            width: 60px; height: 60px;
-            background-color: var(--docu-black);
-            border-radius: 50%;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            cursor: pointer;
-            z-index: 100;
-            display: none; /* Hidden on Desktop by default */
-            align-items: center; justify-content: center;
-            color: white;
-            transition: transform 0.2s;
+            position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
+            background-color: var(--docu-black); border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            cursor: pointer; z-index: 100; display: none; align-items: center; justify-content: center; color: white; transition: transform 0.2s;
         }
         #chat-fab:hover { transform: scale(1.05); }
         #chat-fab svg { width: 30px; height: 30px; }
+        #chat-fab.visible { display: flex; animation: popIn 0.4s ease; }
 
         /* --- CHAT INTERNALS --- */
-        #chat-header { 
-            padding: 15px 20px; background: #fff; border-bottom: 1px solid #eee; 
-            display: flex; align-items: center; justify-content: space-between;
-            flex-shrink: 0;
-        }
-        #chat-header h2 { margin: 0; color: var(--docu-black); font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
+        #chat-header { padding: 15px 20px; background: #fff; border-bottom: 1px solid #eee; display: flex; align-items: center; justify-content: space-between; }
+        #chat-header h2 { margin: 0; color: var(--docu-black); font-size: 1.1rem; }
+        #close-chat-btn { background: none; border: none; font-size: 24px; color: #999; cursor: pointer; display: none; }
+        #right-panel.mode-widget #close-chat-btn { display: block; }
         
-        /* Close button: Hidden on Desktop Split Screen, Visible on Mobile Widget */
-        #close-chat-btn { background: none; border: none; font-size: 24px; color: #999; cursor: pointer; padding: 0; display: none; }
-
-        #chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: #fff; }
+        #chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; background: #fff; }
         
-        .chat-row { display: flex; align-items: flex-end; gap: 10px; width: 100%; }
+        .chat-row { display: flex; align-items: flex-end; gap: 10px; }
         .chat-row.user { flex-direction: row-reverse; }
-        
-        .avatar { 
-            width: 32px; height: 32px; border-radius: 50%; 
-            display: flex; align-items: center; justify-content: center; 
-            flex-shrink: 0;
-        }
+        .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
         .avatar.agent { background-color: var(--docu-black); color: #fff; }
-        .avatar.user { background-color: var(--brand-color); color: #fff; font-size: 14px; }
+        .avatar.user { background-color: var(--brand-color); color: #fff; }
         .avatar svg { width: 18px; height: 18px; }
-
         .message { max-width: 80%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.4; position: relative; animation: popIn 0.3s ease; }
         .chat-row.user .message { background-color: var(--brand-color); color: white; border-bottom-right-radius: 2px; }
         .chat-row.agent .message { background-color: #f0f4f8; color: #16325c; border-bottom-left-radius: 2px; }
         
-        #chat-input-area { padding: 15px; padding-bottom: 300px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; flex-shrink: 0; }
+        #chat-input-area { padding: 15px; padding-bottom: 200px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; }
         #chat-input { flex: 1; padding: 10px 15px; border: 1px solid #ccc; border-radius: 24px; font-size: 14px; outline: none; }
         #send-btn { background-color: var(--brand-color); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
 
-        /* --- RESPONSIVE MOBILE STYLES --- */
-        @media (max-width: 768px) {
-            /* 1. DATA PANEL becomes Full Screen */
-            #left-panel.active { 
-                flex: 0 0 100%; 
-                width: 100%; 
-                padding: 10px;
-                z-index: 5; /* Sit above Chat base layer */
-            }
-
-            /* 2. CHAT PANEL becomes Hidden or Widget */
-            
-            /* When Table is active, Chat is Hidden by default (accessible via FAB) */
-            #right-panel.mobile-hidden {
-                position: fixed;
-                bottom: 90px; right: 20px; width: 90%; height: 60vh;
-                transform: translateY(20px) scale(0.95);
-                opacity: 0; pointer-events: none;
-                z-index: -1;
-                border-radius: 12px; border: 1px solid #ddd;
-            }
-
-            /* When User clicks FAB, Chat becomes Widget Overlay */
-            #right-panel.mobile-widget {
-                position: fixed;
-                bottom: 90px; right: 20px; width: 90%; height: 60vh;
-                transform: translateY(0);
-                opacity: 1; pointer-events: auto;
-                z-index: 150; /* Above everything */
-                border-radius: 12px; border: 1px solid #ddd;
-                box-shadow: 0 5px 30px rgba(0,0,0,0.3);
-            }
-            
-            /* Show Close Button on Mobile Widget */
-            #right-panel.mobile-widget #close-chat-btn { display: block; }
-
-            /* 3. FAB Visibility */
-            #chat-fab.visible { display: flex; animation: popIn 0.4s ease; }
-
-            /* 4. Table Cards (Your Card View Logic) */
-            table, thead, tbody, th, td, tr { display: block; width: 100%; }
-            thead tr { position: absolute; top: -9999px; left: -9999px; }
-            tr { background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); padding: 5px; }
-            td { border: none; border-bottom: 1px solid #f4f6f9; position: relative; padding: 10px 10px 10px 40%; text-align: right; min-height: 40px; display: flex; justify-content: space-between; align-items: center; }
-            td:before { content: attr(data-label); font-weight: 700; color: #54698d; text-align: left; font-size: 0.9em; position: absolute; left: 10px; }
-            td[data-label="Select"] { justify-content: flex-start; background-color: #f8f9fa; border-bottom: 1px solid #eee; padding-left: 10px; }
-            td[data-label="Select"]:before { display: none; }
-            td:last-child { border-bottom: none; justify-content: center; padding-left: 0; }
-            td:last-child:before { display: none; }
-            .form-container { overflow-x: visible; }
-        }
-
-        /* --- UTILITY STYLES (Buttons, Spinners, etc) --- */
-        .form-container { position: relative; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; min-height: 200px; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 800px; }
-        th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; white-space: nowrap; }
-        th { background-color: #f3f3f3; color: #555; font-weight: 600; position: sticky; top: 0; z-index: 5; }
+        /* --- UTILITY --- */
+        .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; }
+        .submit-btn { padding: 12px 24px; font-size: 16px; width: 100%; background-color: var(--brand-color); color: white; border: none; border-radius: 4px; cursor: pointer; }
         
         button, .edit-btn, .save-btn, .view-sow-btn { background-color: var(--brand-color); color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; text-decoration: none; display: inline-block; }
         .view-sow-btn { background-color: #ff9800; display: none; font-weight: bold; font-size: 11px; padding: 4px 8px; margin-left: 5px; }
         .toggle-container { display: flex; align-items: center; margin-bottom: 15px; font-size: 14px; color: #555; padding: 0 15px; margin-top: 15px; }
-        
         .switch { position: relative; display: inline-block; width: 40px; height: 20px; margin-right: 10px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--brand-color); }
         input:checked + .slider:before { transform: translateX(20px); }
-
+        
+        /* Spinner & Toast */
         #spinner-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255,255,255,0.85); z-index: 50; display: none; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
         .spinner { width: 50px; height: 50px; border: 4px solid #e0e0e0; border-top: 4px solid var(--brand-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
         #loading-text { color: var(--brand-color); font-weight: 500; animation: pulse 2s infinite; }
@@ -191,25 +205,22 @@
         
         #agent-console { margin-top: 25px; background-color: #1e1e1e; color: #00ff00; font-family: "Courier New", Courier, monospace; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 1px solid #333; }
         .log-entry { margin-bottom: 5px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #333; padding-bottom: 2px;}
-        
         #toast { visibility: hidden; min-width: 300px; background-color: #04844b; color: white; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 4.5s; }
-        
-        .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; text-align: center; }
-        .submit-btn { padding: 12px 24px; font-size: 16px; width: 100%; }
-        .view-mode { display: block; } .edit-mode { display: none; }
-        h1 { color: #032d60; margin-top: 0; font-size: 1.5em;}
 
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
         @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadein { from {top: -50px; opacity: 0;} to {top: 20px; opacity: 1;} }
         @keyframes fadeout { from {top: 20px; opacity: 1;} to {top: -50px; opacity: 0;} }
+
+        .view-mode { display: block; } .edit-mode { display: none; }
+        h1 { color: #032d60; margin-top: 0; font-size: 1.5em;}
     </style>
 </head>
 <body>
 
-    <div id="chat-fab" onclick="toggleMobileChatWidget()">
+    <div id="chat-fab" onclick="toggleChatWidget()">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
     </div>
 
@@ -259,7 +270,7 @@
             </div>
         </div>
 
-        <div id="right-panel">
+        <div id="right-panel" class="mode-full">
             <div id="chat-header">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <div class="avatar agent">
@@ -267,7 +278,7 @@
                     </div>
                     <h2>SOW Operations Agent</h2>
                 </div>
-                <button id="close-chat-btn" onclick="toggleMobileChatWidget()">×</button>
+                <button id="close-chat-btn" onclick="toggleChatWidget()">×</button>
             </div>
             
             <div id="chat-history">
@@ -315,23 +326,20 @@
             // 1. Show Table
             leftPanel.classList.add('active');
             
-            // 2. If Mobile, hide chat and show FAB
+            // 2. Desktop: right-panel stays active (Split View)
+            // 3. Mobile: right-panel hides (becomes widget)
             if (window.innerWidth <= 768) {
-                rightPanel.classList.add('mobile-hidden');
+                rightPanel.className = 'mode-hidden';
                 fab.classList.add('visible');
             }
-            // On Desktop, right-panel stays flex:1 naturally (Split Screen)
         }
 
-        function toggleMobileChatWidget() {
-            // Only works on mobile where 'mobile-hidden' or 'mobile-widget' classes are used
-            if (rightPanel.classList.contains('mobile-hidden')) {
-                rightPanel.classList.remove('mobile-hidden');
-                rightPanel.classList.add('mobile-widget');
+        function toggleChatWidget() {
+            if (rightPanel.classList.contains('mode-hidden')) {
+                rightPanel.className = 'mode-widget';
                 setTimeout(() => chatInput.focus(), 300);
             } else {
-                rightPanel.classList.remove('mobile-widget');
-                rightPanel.classList.add('mobile-hidden');
+                rightPanel.className = 'mode-hidden';
             }
         }
 
@@ -340,12 +348,9 @@
             const row = document.createElement('div');
             row.className = `chat-row ${sender}`;
             
-            let avatarHtml = '';
-            if (sender === 'agent') {
-                avatarHtml = `<div class="avatar agent"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>`;
-            } else {
-                avatarHtml = `<div class="avatar user"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>`;
-            }
+            let avatarHtml = (sender === 'agent') ? 
+                '<div class="avatar agent"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></div>' : 
+                '<div class="avatar user"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>';
 
             row.innerHTML = `${avatarHtml}<div class="message">${text}</div>`;
             chatHistory.appendChild(row);
@@ -394,8 +399,7 @@
                     switchToTableMode();
                 } 
                 else if (data.action === 'start_polling') {
-                    // Ensure table is visible
-                    if (!leftPanel.classList.contains('active')) switchToTableMode();
+                    leftPanel.classList.add('active'); // Ensure visible
                     startProcess(data.task_id);
                 }
             })
@@ -439,6 +443,7 @@
                 
                 const prodCount = opp.ProductCount !== undefined ? opp.ProductCount : '-';
 
+                // CARD VIEW LABELS
                 row.innerHTML = `
                     <td data-label="Select"><input type="checkbox" name="opportunity_ids" value="${opp.Id}" ${isDisabled ? 'disabled' : ''}></td>
                     <td data-label="Project ID"><small style="color:#999">${opp.Id}</small></td>
@@ -463,14 +468,17 @@
                 `;
                 tableBody.appendChild(row);
             });
+            
+            addMessage(`I've loaded ${data.length} records.`, 'agent');
         }
 
         function startProcess(taskId) {
-            // Mobile: Ensure we show data to show spinner
-            if (window.innerWidth <= 768 && rightPanel.classList.contains('mobile-widget')) {
-                toggleMobileChatWidget(); // Hide chat to show spinner under it
+            // Mobile: Hide Chat, Show Spinner
+            if (window.innerWidth <= 768) {
+                rightPanel.classList.add('mode-hidden');
+                fab.classList.add('visible');
             }
-
+            
             spinner.style.display = 'flex';
             if(checklist) checklist.innerHTML = '';
             consoleDiv.style.display = 'block'; 
@@ -524,14 +532,13 @@
                             setTimeout(() => { spinner.style.display = 'none'; }, 2000);
                             toast.className = 'show';
                             setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
-                            addMessage("✅ All tasks completed successfully.", 'agent');
+                            addMessage("✅ All tasks completed.", 'agent');
                         }
                     })
                     .catch(err => console.error("Poll error:", err));
             }, 1500);
         }
 
-        // ... (Keep existing editEmail and saveEmail functions) ...
         function editEmail(editButton) {
             const row = editButton.closest('tr');
             row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
@@ -558,7 +565,8 @@
                 } else {
                     alert('Error saving email: ' + data.message);
                 }
-            });
+            })
+            .catch(error => { console.error(error); });
         }
     </script>
 </body>
