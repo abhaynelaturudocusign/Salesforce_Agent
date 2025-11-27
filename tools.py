@@ -43,6 +43,48 @@ sf = Salesforce(
 
 # --- TOOL DEFINITIONS ---
 
+HISTORY_FILE = "sow_history.json"
+
+def log_deal_to_history(deal_data):
+    """Appends a successfully closed deal to the local JSON ledger."""
+    history = []
+    # 1. Load existing
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r') as f:
+                history = json.load(f)
+        except: pass
+    
+    # --- NEW: Store Envelope ID and Link ---
+    env_id = deal_data.get('envelope_id')
+
+    # 2. Add new record (formatted to match UI expectations)
+    record = {
+        "Id": deal_data.get('opportunity_id'),
+        "Name": deal_data.get('project_name'),
+        "Amount": deal_data.get('total_fixed_fee'),
+        "PrimaryContactName": deal_data.get('client_name'),
+        "PrimaryContactEmail": deal_data.get('client_email'),
+        "CloseDate": datetime.datetime.now().strftime("%Y-%m-%d"), # Sent Date
+        "ProductCount": "N/A", # Or calculate if available
+        "Status": "SOW Sent",
+        "EnvelopeId": env_id,
+        "DocuSignLink": f"https://apps-d.docusign.com/send/documents/details/{env_id}" if env_id else "N/A"
+    }
+    history.insert(0, record) # Add to top
+    
+    # 3. Save
+    with open(HISTORY_FILE, 'w') as f:
+        json.dump(history, f, indent=2)
+
+def get_local_history() -> str:
+    """Fetches the list of locally logged SOWs."""
+    print("--- Calling Tool: get_local_history ---")
+    if not os.path.exists(HISTORY_FILE):
+        return "[]"
+    with open(HISTORY_FILE, 'r') as f:
+        return f.read()
+
 # --- ADD THIS NEW FUNCTION ---
 def get_docusign_client():
     """
@@ -384,11 +426,49 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         if response_send.status_code != 200:
             return f"Error Sending Envelope: {response_send.text}"
         
+        # --- NEW: Log to History ---
+        log_data = {
+            "opportunity_id": opportunity_id,
+            "project_name": project_name,
+            "total_fixed_fee": args.get('total_fixed_fee'),
+            "client_name": client_name,
+            "client_email": client_email,
+            "envelope_id": envelope_id # <--- ADDED THIS
+        }
+        log_deal_to_history(log_data)
+        # ---------------------------
+
         return f"SOW Sent! Envelope ID: {envelope_id}"
 
     except Exception as e:
         print(f"API Execution Error: {e}")
         return f"Error generating SOW: {e}"
+
+def search_history_for_chat(query: str) -> str:
+    """
+    Searches the local SOW history for a specific project or client.
+    Returns the details found, including the DocuSign Link.
+    """
+    if not os.path.exists(HISTORY_FILE):
+        return "No history found."
+    
+    try:
+        with open(HISTORY_FILE, 'r') as f:
+            history = json.load(f)
+            
+        results = []
+        query_lower = query.lower()
+        for record in history:
+            # Search by Name or Client
+            if query_lower in record.get('Name', '').lower() or query_lower in record.get('PrimaryContactName', '').lower():
+                results.append(record)
+        
+        if not results:
+            return "No matching records found in history."
+            
+        return json.dumps(results, indent=2)
+    except Exception as e:
+        return f"Error searching history: {e}"
 
 def create_composite_sow_envelope(tool_input: str) -> str:
     print(f"--- Calling Tool: create_composite_sow_envelope ---")
@@ -559,6 +639,18 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         envelopes_api = EnvelopesApi(api_client)
         result = envelopes_api.create_envelope(os.getenv("DOCUSIGN_API_ACCOUNT_ID"), envelope_definition=envelope_def)
         
+        # --- NEW: Log to History ---
+        log_data = {
+            "opportunity_id": opportunity_id,
+            "project_name": project_name,
+            "total_fixed_fee": args.get('total_fixed_fee'),
+            "client_name": client_name,
+            "client_email": client_email,
+            "envelope_id": envelope_id # <--- ADDED THIS
+        }
+        log_deal_to_history(log_data)
+        # ---------------------------
+
         return f"SOW Sent! Envelope ID: {result.envelope_id}"
 
     except Exception as e:

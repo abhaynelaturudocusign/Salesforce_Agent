@@ -4,6 +4,7 @@ from langchain_openai import AzureChatOpenAI
 from langchain.agents import AgentExecutor, Tool, create_react_agent
 from langchain.prompts import PromptTemplate
 from tools import * # Import all tools
+from tools import search_history_for_chat
 
 # --- AGENT SETUP (This is the core agent configuration) ---
 llm = AzureChatOpenAI(
@@ -211,52 +212,50 @@ def finalize_deal(envelope_id, opportunity_id):
 # listener.py (Updated classify_intent)
 
 def classify_intent(user_message):
-    """
-    Uses the LLM to both REPLY to the user and DECIDE on an action.
-    """
+    print(f"🧠 Processing user message: {user_message}")
     
+    # 1. READ MEMORY: Get recent history to give the LLM context
+    from tools import get_local_history
+    history_context = get_local_history()
+    # Truncate history if too long to save tokens
+    if len(history_context) > 2000: history_context = history_context[:2000] + "...(truncated)"
+
     prompt = f"""
-    You are a helpful, intelligent Sales Operations Assistant for GenWatt Inc.
-    Your goal is to help users manage Salesforce Opportunities and generate SOWs.
-
-    Analyze the user's message: "{user_message}"
-
-    Return a JSON object with two keys: "intent" and "response".
-
-    RULES FOR 'INTENT':
-    1. If the user asks to see, list, show, or find opportunities/projects:
-       Set "intent" to "FETCH_DATA".
+    You are 'The Closer', an intelligent Sales Operations Assistant for GenWatt Inc.
     
-    2. If the user explicitly asks to generate SOWs, send envelopes, or "close" the selected deals:
-       Set "intent" to "EXECUTE_CLOSING".
-    
-    3. For ANY other conversation (greetings, questions about your capabilities, general help):
-       Set "intent" to "GENERAL_CHAT".
+    Current SOW History (Context for you):
+    {history_context}
 
-    RULES FOR 'RESPONSE':
-    - If intent is FETCH_DATA: Write a brief confirmation like "Sure, let me pull up the current open opportunities for you."
-    - If intent is EXECUTE_CLOSING: Write a confirmation like "Understood. I will start the SOW generation process for the selected deals immediately."
-    - If intent is GENERAL_CHAT: **GENERATE A REAL, HELPFUL AI RESPONSE.** Answer their question, introduce yourself, or explain that you can help them generate SOWs and manage deals. Be conversational and professional.
+    User Message: "{user_message}"
 
-    Output ONLY valid JSON.
+    YOUR GOAL:
+    Determine the user's intent and provide a helpful response.
+
+    ### VALID INTENTS (Choose One):
+    1. "FETCH_OPEN" -> If user wants to see NEW/OPEN opportunities to work on.
+    2. "FETCH_HISTORY" -> If user explicitly asks to see the FULL history TABLE.
+    3. "EXECUTE_CLOSING" -> If user wants to generate/send/close deals.
+    4. "GENERAL_CHAT" -> For everything else (Greetings, Questions about specific past deals, Jokes).
+
+    ### RESPONSE GUIDELINES:
+    - If "FETCH_OPEN": Say you will pull up the open projects from Salesforce.
+    - If "EXECUTE_CLOSING": Confirm you are starting the agents.
+    - If "GENERAL_CHAT": 
+        - You are a helpful assistant.
+        - **CRITICAL:** If the user asks about a specific past deal (e.g. "Did we send the SOW for United Oil?" or "Give me the link for Acme"), USE THE HISTORY CONTEXT provided above to answer them.
+        - Provide the 'DocuSignLink' if they ask for it.
+        - Be conversational.
+
+    ### OUTPUT FORMAT:
+    Return ONLY a JSON object: {{ "intent": "...", "response": "..." }}
     """
     
     try:
-        # We use the same LLM instance configured in this file
         result = llm.invoke(prompt)
         content = result.content.strip()
-        
-        # Clean up potential markdown formatting from the LLM
-        if content.startswith("```json"): 
-            content = content[7:]
-        if content.endswith("```"): 
-            content = content[:-3]
-            
+        if content.startswith("```json"): content = content[7:]
+        if content.endswith("```"): content = content[:-3]
         return json.loads(content.strip())
-        
     except Exception as e:
-        print(f"Intent classification failed: {e}")
-        return {
-            "intent": "GENERAL_CHAT", 
-            "response": "I apologize, but I'm having trouble connecting to my brain right now. You can try asking me to 'Show opportunities'."
-        }
+        print(f"Intent Logic Error: {e}")
+        return {"intent": "GENERAL_CHAT", "response": "I'm having trouble accessing my memory right now."}

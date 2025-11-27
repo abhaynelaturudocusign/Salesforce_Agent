@@ -4,7 +4,7 @@ from main import start_deal_process
 import os
 import json
 from flask import Flask, request, Response, render_template, redirect, url_for,jsonify
-from tools import get_open_opportunities, update_contact_email
+from tools import get_open_opportunities, update_contact_email,get_local_history
 import xmltodict
 import threading
 import uuid
@@ -298,11 +298,18 @@ def agent_chat():
         "data": None
     }
 
-    if intent == "FETCH_DATA":
+    if intent == "FETCH_OPEN":
         from tools import get_open_opportunities
         opps_json = get_open_opportunities()
         response_payload["action"] = "render_table"
         response_payload["data"] = json.loads(opps_json)
+        
+    elif intent == "FETCH_HISTORY": # <--- NEW BRANCH
+        from tools import get_local_history
+        # Read from the local JSON file
+        history_json = get_local_history()
+        response_payload["action"] = "render_table"
+        response_payload["data"] = json.loads(history_json)
 
     elif intent == "EXECUTE_CLOSING":
         if not selected_ids:
