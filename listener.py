@@ -282,10 +282,12 @@ def task_status(task_id):
 def agent_chat():
     data = request.get_json()
     user_message = data.get('message', '')
-    # The frontend sends selected IDs if the table is visible
-    selected_ids = data.get('selected_ids', []) 
+    selected_ids = data.get('selected_ids', [])
     
-    # 1. Decide what to do
+    # --- 1. READ CONTEXT FROM UI ---
+    use_docgen = data.get('use_docgen') == 'on'
+    
+    # 2. Call the Brain
     decision = classify_intent(user_message)
     intent = decision.get('intent')
     bot_response = decision.get('response')
@@ -296,21 +298,16 @@ def agent_chat():
         "data": None
     }
 
-    # 2. Handle "Show Projects"
     if intent == "FETCH_DATA":
         from tools import get_open_opportunities
         opps_json = get_open_opportunities()
-        # Send the data back to the frontend to render the table
         response_payload["action"] = "render_table"
         response_payload["data"] = json.loads(opps_json)
 
-    # 3. Handle "Execute Closing"
     elif intent == "EXECUTE_CLOSING":
         if not selected_ids:
-            response_payload["message"] = "I can do that, but you haven't selected any projects yet. Please ask me to 'Show projects', select the ones you want, and then ask me to close them."
+            response_payload["message"] = "I can help with that, but please select the projects from the list first."
         else:
-            # Trigger the exact same logic as the button click
-            # We reuse the code from /start-closing but call it internally
             task_id = str(uuid.uuid4())
             with tasks_lock:
                 tasks[task_id] = {
@@ -322,16 +319,21 @@ def agent_chat():
                     "finished_deals": [],
                     "results": {}
                 }
-
-            # Configure Template ID (Defaulting to DocGen)
-            template_id = "a1b2c3d4-e5f6-7890-abcd-1234567890ab" # Your DocGen GUID
+            
+            # --- 3. SELECT TEMPLATE BASED ON CONTEXT ---
+            if use_docgen:
+                template_id = "dba32743-cb50-42d1-beec-abd6a2d91a70" # DocGen ID
+            else:
+                template_id = "8cbe3647-6fce-49fb-877a-7911cf278316" # Legacy ID
+            
             signer_role = "ClientSigner"
 
             for opp_id in selected_ids:
                 log_handler = AgentLogHandler(task_id, opp_id)
+                # --- 4. PASS use_docgen TO WORKER ---
                 thread = threading.Thread(
                     target=start_deal_process, 
-                    args=(opp_id, template_id, signer_role, task_id, tasks, tasks_lock, log_handler, True) # True for use_docgen
+                    args=(opp_id, template_id, signer_role, task_id, tasks, tasks_lock, log_handler, use_docgen)
                 )
                 thread.start()
             

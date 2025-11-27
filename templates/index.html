@@ -263,50 +263,46 @@
     document.getElementById('send-btn').addEventListener('click', sendMessage);
 
     function sendMessage() {
-        const text = chatInput.value.trim();
-        if (!text) return;
+            const text = chatInput.value.trim();
+            if (!text) return;
 
-        addMessage(text, 'user');
-        chatInput.value = '';
+            // 1. UI Updates
+            addMessage(text, 'user');
+            chatInput.value = '';
 
-        // Get selected checkboxes if table is visible
-        const selectedIds = Array.from(document.querySelectorAll('input[name="opportunity_ids"]:checked')).map(cb => cb.value);
-
-        // Get DocGen toggle state
-        const useDocGen = document.getElementById('docgen-toggle') ? document.getElementById('docgen-toggle').checked : false;
-
-        fetch('/agent-chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                message: text, 
-                selected_ids: selectedIds,
-                use_docgen: useDocGen ? 'on' : 'off' // Pass toggle state to chat
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.message) addMessage(data.message, 'agent');
+            // 2. Gather Data (Selected IDs + Toggle State)
+            const selectedIds = Array.from(document.querySelectorAll('input[name="opportunity_ids"]:checked')).map(cb => cb.value);
             
-            if (data.action === 'render_table') {
-                renderTable(data.data);
-            } 
-            else if (data.action === 'start_polling') {
-                // Trigger UI loading state
-                spinner.style.display = 'flex';
-                loadingText.innerText = "🚀 Initializing Agents...";
-                consoleDiv.style.display = 'block'; 
-                consoleContent.innerHTML = '<div class="log-entry">Agent started via Chat...</div>';
-                document.getElementById('completed-list').innerHTML = '';
-                
-                pollStatus(data.task_id);
-            }
-        })
-        .catch(err => {
-            addMessage("Error connecting to server.", 'agent');
-            console.error(err);
-        });
-    }
+            // --- NEW: Capture Toggle State ---
+            const toggleEl = document.getElementById('docgen-toggle');
+            // Send 'on' if checked, 'off' (or nothing) if not
+            const useDocGenValue = toggleEl && toggleEl.checked ? 'on' : 'off'; 
+
+            // 3. Send to Backend
+            fetch('/agent-chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    message: text, 
+                    selected_ids: selectedIds,
+                    use_docgen: useDocGenValue // <--- PASSING CONTEXT HERE
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.message) addMessage(data.message, 'agent');
+
+                if (data.action === 'render_table') {
+                    renderTable(data.data);
+                } else if (data.action === 'start_polling') {
+                    startProcess(data.task_id);
+                }
+            })
+            .catch(err => {
+                addMessage("Error connecting to agent.", 'agent');
+                console.error(err);
+            });
+        }
 
     function addMessage(text, sender) {
         const div = document.createElement('div');
