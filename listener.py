@@ -13,6 +13,7 @@ import uuid
 from main import start_deal_process, finalize_deal 
 # Import the new tool from tools.py
 from tools import get_open_opportunities
+from main import classify_intent
 
 from langchain.callbacks.base import BaseCallbackHandler
 
