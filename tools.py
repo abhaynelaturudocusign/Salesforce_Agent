@@ -281,12 +281,10 @@ def build_docgen_json_raw(data_dict):
 
 # --- TOOL: CREATE DOCGEN ENVELOPE (HYBRID SDK + RAW API) ---
 def create_docgen_sow_envelope(tool_input: str) -> str:
-    print(f"--- Calling Tool: create_docgen_sow_envelope (Raw API Flow + Custom Fields) ---")
+    print(f"--- Calling Tool: create_docgen_sow_envelope (Robust Input) ---")
     
-    # --- 1. DEBUG & SANITIZE INPUT ---
-    print(f"🔥 DEBUG RAW INPUT: '{tool_input}'")
-    
-    # Clean up Markdown if the Agent added it
+    # --- 1. SANITIZE INPUT (The Fix) ---
+    # Remove Markdown formatting if the Agent included it
     clean_input = tool_input.strip()
     if clean_input.startswith("```json"):
         clean_input = clean_input[7:]
@@ -296,12 +294,12 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         clean_input = clean_input[:-3]
     
     clean_input = clean_input.strip()
+    print(f"🔥 DEBUG CLEAN INPUT: '{clean_input}'")
     
     if not clean_input:
         return "Error: Agent provided empty input. JSON required."
 
-    # 1. Auth using SDK for convenience in Step 1
-    # We also get the raw token for Steps 2-4
+    # 2. Auth
     access_token = get_docusign_token()
     if not access_token: return "Error: DocuSign Auth Failed"
     
@@ -311,19 +309,18 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
     
     envelopes_api = EnvelopesApi(api_client)
     account_id = os.getenv("DOCUSIGN_API_ACCOUNT_ID")
-    base_url = os.getenv("DOCUSIGN_HOST") # e.g. https://demo.docusign.net/restapi
+    base_url = os.getenv("DOCUSIGN_HOST")
 
     try:
-        args = json.loads(tool_input)
+        # 3. Parse JSON
+        args = json.loads(clean_input)
+        
         client_name = args.get('client_name')
         client_email = args.get('client_email')
         project_name = args.get('project_name')
         template_id = args.get('template_id') 
+        opportunity_id = args.get('opportunity_id', '')
         
-        opportunity_id = args.get('opportunity_id', '') # <--- Extract Opp ID
-
-
-
         doc_data = args.get('pdf_data', {})
         doc_data.update({
             'Account_Label': args.get('account_name'),
@@ -333,7 +330,7 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
         })
 
         # ============================================================
-        # STEP 1: CREATE DRAFT ENVELOPE (Using SDK)
+        # STEP 1: CREATE DRAFT ENVELOPE
         # ============================================================
         signer = Signer(
             email=client_email, name=client_name,
@@ -356,206 +353,122 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             composite_templates=[comp_template]
         )
 
-        # --- 🔍 DEBUG: PRINT DRAFT PAYLOAD ---
-        print("\n" + "="*30)
-        print("🔍 DEBUG: DRAFT ENVELOPE PAYLOAD (STEP 1)")
-        print("="*30)
-        try:
-            # Sanitize converts the SDK object into a JSON-serializable dict
-            payload = api_client.sanitize_for_serialization(envelope_def)
-            print(json.dumps(payload, indent=2))
-        except Exception as debug_err:
-            print(f"Could not print debug JSON: {debug_err}")
-        print("="*30 + "\n")
-        # -------------------------------------
-
         draft = envelopes_api.create_envelope(account_id, envelope_definition=envelope_def)
         envelope_id = draft.envelope_id
         print(f"--- Draft Envelope Created: {envelope_id} ---")
 
         # ============================================================
-        # PREPARE FOR RAW CALLS
+        # STEP 2: GET DOCUMENT ID
         # ============================================================
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json"
         }
-
-        # ============================================================
-        # STEP 2: GET DOCUMENT ID (GET /docGenFormFields)
-        # ============================================================
         get_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}/docGenFormFields"
         
-        print(f"--- GET {get_url} ---")
         response_get = requests.get(get_url, headers=headers)
+        if response_get.status_code != 200: return f"Error Fetching DocGen Fields: {response_get.text}"
         
-        if response_get.status_code != 200:
-            return f"Error Fetching DocGen Fields: {response_get.text}"
-            
         get_data = response_get.json()
-        # Extract documentId from the first item in the list
-        if not get_data.get('docGenFormFields'):
-             return "Error: No DocGen fields found. Is the template set up correctly?"
-             
+        if not get_data.get('docGenFormFields'): return "Error: No DocGen fields found."
         target_doc_id = get_data['docGenFormFields'][0]['documentId']
-        print(f"--- Found Target Document ID: {target_doc_id} ---")
 
         # ============================================================
-        # STEP 3: ADD MERGE FIELDS (PUT /docgenformfields)
+        # STEP 3: UPDATE DOCGEN DATA
         # ============================================================
         put_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}/docgenformfields?update_docgen_formfields_only=false"
-        
-        # Build the raw JSON body
         fields_list_raw = build_docgen_json_raw(doc_data)
         
         request_body = {
-            "docGenFormFields": [
-                {
-                    "documentId": target_doc_id,
-                    "docGenFormFieldList": fields_list_raw
-                }
-            ]
+            "docGenFormFields": [{
+                "documentId": target_doc_id,
+                "docGenFormFieldList": fields_list_raw
+            }]
         }
-
-        print(f"--- PUT {put_url} ---")
-        print(f"DEBUG PAYLOAD: {json.dumps(request_body, indent=2)}")
-        
         response_put = requests.put(put_url, headers=headers, json=request_body)
-        
-        if response_put.status_code != 200:
-            return f"Error Updating DocGen Fields: {response_put.text}"
-            
-        print(f"--- Data Merged Successfully ---")
+        if response_put.status_code != 200: return f"Error Updating DocGen Fields: {response_put.text}"
 
         # ============================================================
-        # STEP 4: ADD CUSTOM FIELDS (PUT /envelopes/{id}?advanced_update=true)
+        # STEP 4: UPDATE CUSTOM FIELD (The Safe Way)
         # ============================================================
-        # This is the critical fix you identified.
-
-        # A. Fetch Existing Custom Fields to find the fieldId
+        # 4a. Fetch Existing Fields to find the ID
         cf_list_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}/custom_fields"
-        print(f"--- Fetching Custom Fields from: {cf_list_url} ---")
-        
         cf_response = requests.get(cf_list_url, headers=headers)
         field_id = None
         
         if cf_response.status_code == 200:
             cf_data = cf_response.json()
-            text_fields = cf_data.get('textCustomFields', [])
-            
-            # Loop to find 'opportunity_id'
-            for field in text_fields:
+            for field in cf_data.get('textCustomFields', []):
                 if field.get('name') == 'opportunity_id':
                     field_id = field.get('fieldId')
-                    print(f"--- Found existing 'opportunity_id' with fieldId: {field_id} ---")
                     break
         
-        # B. Construct the Update Payload
+        # 4b. Construct Update Payload
         cf_item = {
             "name": "opportunity_id",
             "value": opportunity_id,
             "show": "false"
         }
-        
-        # CRITICAL: If we found an ID, we must include it to perform an UPDATE
-        if field_id:
-            cf_item["fieldId"] = field_id
+        if field_id: cf_item["fieldId"] = field_id # Include ID to update existing field
             
-        cf_update_body = {
-            "customFields": {
-                "textCustomFields": [cf_item]
-            }
-        }
-
-        # C. Send the Advanced Update
-        update_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}?advanced_update=true"
-        print(f"--- Updating Custom Field via Advanced Update... ---")
-        # --- 🔍 DEBUG: PRINT DRAFT PAYLOAD ---
-        print("\n" + "="*30)
-        print("🔍 DEBUG: updating custom field PAYLOAD ")
-        print("="*30)
-        try:
-            # Sanitize converts the SDK object into a JSON-serializable dict
-            fields_payload = api_client.sanitize_for_serialization(cf_update_body)
-            print(json.dumps(fields_payload, indent=2))
-        except Exception as debug_err:
-            print(f"Could not print debug JSON: {debug_err}")
-        print("="*30 + "\n")
-        # -------------------------------------
-        response_cf = requests.put(update_url, headers=headers, json=cf_update_body)
+        cf_update_body = { "textCustomFields": [cf_item] }
         
-        if response_cf.status_code != 200:
-             # Fallback: If advanced update fails, print error but try to proceed
-             print(f"⚠️ Warning: Failed to update custom field: {response_cf.text}")
-        else:
-             print(f"--- Custom Field Updated Successfully ---")
+        # 4c. Update via dedicated endpoint (Not Advanced Update)
+        # This endpoint handles upserts correctly if fieldId is provided
+        update_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}/custom_fields"
+        requests.put(update_url, headers=headers, json=cf_update_body)
 
         # ============================================================
-        # STEP 4: SEND ENVELOPE (PUT /envelopes/{id})
+        # STEP 5: SEND ENVELOPE
         # ============================================================
         send_url = f"{base_url}/v2.1/accounts/{account_id}/envelopes/{envelope_id}"
-        
-        send_body = { "status": "sent" }
-        
-        print(f"--- Sending Envelope... ---")
-        response_send = requests.put(send_url, headers=headers, json=send_body)
+        response_send = requests.put(send_url, headers=headers, json={ "status": "sent" })
         
         if response_send.status_code != 200:
             return f"Error Sending Envelope: {response_send.text}"
         
-        # --- NEW: Log to History ---
-        log_data = {
-            "opportunity_id": opportunity_id,
-            "project_name": project_name,
-            "total_fixed_fee": args.get('total_fixed_fee'),
-            "client_name": client_name,
-            "client_email": client_email,
-            "envelope_id": envelope_id # <--- ADDED THIS
-        }
+        # --- Log to History ---
         try:
-            # Ensure log_deal_to_history is available or import it
             from tools import log_deal_to_history
+            log_data = {
+                "opportunity_id": opportunity_id,
+                "project_name": project_name,
+                "total_fixed_fee": args.get('total_fixed_fee'),
+                "client_name": client_name,
+                "client_email": client_email,
+                "envelope_id": envelope_id
+            }
             log_deal_to_history(log_data)
         except: pass
-        # ---------------------------
 
         return f"SOW Sent! Envelope ID: {envelope_id}"
 
+    except json.JSONDecodeError as je:
+        print(f"❌ JSON Parsing Error: {je}")
+        return f"Error: Invalid JSON format from Agent."
     except Exception as e:
-        print(f"API Execution Error: {e}")
+        print(f"❌ Execution Error: {e}")
         return f"Error generating SOW: {e}"
-
-def search_history_for_chat(query: str) -> str:
-    """
-    Searches the local SOW history for a specific project or client.
-    Returns the details found, including the DocuSign Link.
-    """
-    if not os.path.exists(HISTORY_FILE):
-        return "No history found."
-    
-    try:
-        with open(HISTORY_FILE, 'r') as f:
-            history = json.load(f)
-            
-        results = []
-        query_lower = query.lower()
-        for record in history:
-            # Search by Name or Client
-            if query_lower in record.get('Name', '').lower() or query_lower in record.get('PrimaryContactName', '').lower():
-                results.append(record)
-        
-        if not results:
-            return "No matching records found in history."
-            
-        return json.dumps(results, indent=2)
-    except Exception as e:
-        return f"Error searching history: {e}"
 
 def create_composite_sow_envelope(tool_input: str) -> str:
     print(f"--- Calling Tool: create_composite_sow_envelope ---")
     
     # --- DEBUG: Print what the Agent sent ---
     print(f"🔥 DEBUG RAW INPUT: '{tool_input}'")
+
+    # 1. Sanitize Input
+
+    clean_input = tool_input.strip()
+
+    if clean_input.startswith("```json"): clean_input = clean_input[7:]
+
+    if clean_input.endswith("```"): clean_input = clean_input[:-3]
+
+    clean_input = clean_input.strip()
+
+    
+
+    if not clean_input: return "Error: Empty input."
 
     api_client = get_docusign_client()
     if not api_client: return "Error: DocuSign Auth Failed"
@@ -719,7 +632,7 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         # Send
         envelopes_api = EnvelopesApi(api_client)
         result = envelopes_api.create_envelope(os.getenv("DOCUSIGN_API_ACCOUNT_ID"), envelope_definition=envelope_def)
-        
+        envelope_id = result.envelope_id
         # --- NEW: Log to History ---
         log_data = {
             "opportunity_id": opportunity_id,
