@@ -191,32 +191,83 @@
         function renderTable(data) {
             leftPanel.classList.add('active');
             tableBody.innerHTML = '';
+            
             if (!data || data.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="5">No open projects found.</td></tr>';
+                tableBody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">No records found.</td></tr>';
                 return;
             }
+
             const sfBaseUrl = "{{ sf_base_url }}";
 
             data.forEach(opp => {
                 const row = document.createElement('tr');
                 row.id = `row-${opp.Id}`;
-                const isDisabled = opp.PrimaryContactEmail === 'N/A';
+                row.setAttribute('data-contact-id', opp.PrimaryContactId || '');
+
+                // 1. Logic for Checkbox (Disable if no contact or if it's a history record)
+                // If it has a DocuSignLink, it's history, so we might want to disable selection to prevent re-sending
+                const isHistory = (opp.Status === 'SOW Sent' || opp.DocuSignLink);
+                const noContact = (opp.PrimaryContactEmail === 'N/A' || !opp.PrimaryContactEmail);
+                const isDisabled = noContact || isHistory;
                 
+                const checkboxHtml = `<input type="checkbox" name="opportunity_ids" value="${opp.Id}" ${isDisabled ? 'disabled' : ''}>`;
+                
+                // 2. Logic for Name Link (Salesforce)
                 let nameHtml = opp.Name;
-                if (sfBaseUrl && sfBaseUrl !== "None") {
+                if (sfBaseUrl && sfBaseUrl !== "None" && !sfBaseUrl.includes("None")) {
                     nameHtml = `<a href="${sfBaseUrl}/${opp.Id}" target="_blank" class="opp-link">${opp.Name}</a>`;
                 }
 
+                // 3. Logic for SOW Link (The Fix)
+                // We check if the data ALREADY has a link (from History)
+                let sowBtnStyle = 'display: none;'; // Default hidden
+                let sowHref = '#';
+                
+                if (opp.DocuSignLink && opp.DocuSignLink !== 'N/A') {
+                    sowHref = opp.DocuSignLink;
+                    sowBtnStyle = 'display: inline-block;';
+                } else if (opp.EnvelopeId) {
+                    sowHref = `https://apps-d.docusign.com/send/documents/details/${opp.EnvelopeId}`;
+                    sowBtnStyle = 'display: inline-block;';
+                }
+
+                // 4. Product Count (Handle missing key in history)
+                const prodCount = opp.ProductCount !== undefined ? opp.ProductCount : '-';
+
                 row.innerHTML = `
-                    <td><input type="checkbox" name="opportunity_ids" value="${opp.Id}" ${isDisabled ? 'disabled' : ''}></td>
-                    <td>${nameHtml}<br><small style="color:#999">${opp.Id}</small></td>
+                    <td>${checkboxHtml}</td>
+                    <td><small style="color:#999">${opp.Id}</small></td>
+                    <td>${nameHtml}</td>
                     <td>$${opp.Amount}</td>
-                    <td>${opp.PrimaryContactName}<br><small>${opp.PrimaryContactEmail}</small></td>
-                    <td><a href="#" class="view-sow-btn" target="_blank">View SOW</a></td>
+                    <td style="text-align: center;">
+                        <span style="background: #eef4ff; color: #2e844a; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.9em;">
+                            ${prodCount}
+                        </span>
+                    </td>
+                    <td>${opp.PrimaryContactName || 'N/A'}</td>
+                    <td>
+                        <div class="view-mode"><span class="email-text">${opp.PrimaryContactEmail || 'N/A'}</span></div>
+                        <div class="edit-mode"><input type="email" class="email-input" value="${opp.PrimaryContactEmail || ''}"></div>
+                    </td>
+                    <td>${opp.CloseDate}</td>
+                    
+                    <td>
+                        <a href="${sowHref}" class="view-sow-btn" target="_blank" style="${sowBtnStyle}">View SOW</a>
+                    </td>
+
+                    <td>
+                        <div class="view-mode">
+                            <button type="button" class="edit-btn" onclick="editEmail(this)" ${isDisabled ? 'disabled' : ''}>Edit</button>
+                        </div>
+                        <div class="edit-mode">
+                            <button type="button" class="save-btn" onclick="saveEmail(this)">Save</button>
+                        </div>
+                    </td>
                 `;
                 tableBody.appendChild(row);
             });
-            addMessage("I've loaded the table. Please select deals to close.", 'agent');
+            
+            addMessage(`I've loaded ${data.length} records into the table.`, 'agent');
         }
 
         function startProcess(taskId) {
