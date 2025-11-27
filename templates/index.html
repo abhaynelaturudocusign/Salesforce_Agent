@@ -53,87 +53,94 @@
 
         /* --- TABLE STYLES (Desktop Default) --- */
         .form-container { position: relative; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; min-height: 200px; }
+        /* Default min-width for Desktop so columns don't squash */
         table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 800px; }
         th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; white-space: nowrap; }
         th { background-color: #f3f3f3; color: #555; font-weight: 600; position: sticky; top: 0; z-index: 5; }
 
-        /* --- MOBILE RESPONSIVE STYLES (The Fix) --- */
+        /* --- MOBILE RESPONSIVE STYLES (THE FIX) --- */
         @media (max-width: 768px) {
-            /* Layout Adjustments */
+            /* 1. Reset Widths */
             #left-panel.active { flex: 0 0 100%; width: 100%; padding: 10px; }
             .form-container { overflow-x: visible; background: transparent; box-shadow: none; }
-
-            /* Force Table to display as Cards */
-            table, thead, tbody, th, td, tr { display: block; width: 100%; }
             
-            /* Hide Desktop Headers */
-            thead tr { position: absolute; top: -9999px; left: -9999px; }
+            /* IMPORTANT: Override the desktop min-width so it fits mobile screens */
+            table { min-width: 0 !important; width: 100%; display: block; }
             
-            /* Card Container */
+            thead { display: none; } /* Hide headers */
+            tbody, tr, td { display: block; width: 100%; }
+            
+            /* 2. Card Style */
             tr { 
                 background: #fff; 
                 border: 1px solid #e5e5e5; 
                 border-radius: 8px; 
                 margin-bottom: 15px; 
-                box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
-                padding: 0; /* Clean padding */
-                overflow: hidden;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
+                padding: 5px;
             }
             
-            /* Card Row (Side-by-Side) */
+            /* 3. Row Layout (Flexbox) */
             td { 
-                display: flex; /* Flexbox prevents overlap */
-                justify-content: space-between; /* Push apart */
-                align-items: center; /* Vertically center */
+                display: flex; 
+                justify-content: space-between; /* Label Left, Value Right */
+                align-items: flex-start; /* Align to top if text wraps */
                 border-bottom: 1px solid #f4f6f9; 
                 position: relative;
-                padding: 12px 15px; /* Comfortable touch target */
+                padding: 12px 10px; 
                 text-align: right;
-                min-height: 45px;
-                white-space: normal; /* Allow wrapping text */
+                min-height: 40px;
+                white-space: normal; /* Allow text wrapping */
             }
             
-            /* The Label (Left Side) */
+            /* 4. The Label */
             td:before { 
                 content: attr(data-label); 
                 font-weight: 700;
                 color: #54698d;
                 text-align: left;
-                flex: 0 0 40%; /* Force label to take 40% width */
+                flex: 0 0 35%; /* Fixed width for label */
                 padding-right: 10px;
-                font-size: 0.9em;
+                font-size: 0.85em;
             }
             
-            /* The Content (Right Side) */
+            /* 5. The Content Value */
             td > * { 
-                flex: 1; 
                 text-align: right; 
-                word-break: break-word; 
+                word-break: break-word; /* Break long words/links */
+                overflow-wrap: anywhere; /* Ensure everything wraps */
+                flex: 1; /* Take remaining space */
+                font-size: 0.95em;
             }
+            
+            /* Special styling for plain text inside TD */
+            td { color: #333; }
 
-            /* Special Styling for Checkbox Row */
+            /* Select Checkbox Row */
             td[data-label="Select"] {
                 background-color: #f8f9fa;
                 border-bottom: 1px solid #eee;
                 justify-content: flex-start;
+                align-items: center;
             }
             td[data-label="Select"]:before { 
-                content: "Select Deal"; /* Explicit label */
+                content: "Select Deal"; 
                 flex: 0 0 auto; 
                 margin-right: 10px; 
             }
             
             /* Actions Row */
-            td:last-child { 
+            td[data-label="Actions"] {
                 border-bottom: none; 
-                justify-content: center; 
-                padding: 15px; 
-                background: #fafafa;
+                justify-content: flex-end; 
+                gap: 10px;
+                padding-top: 15px;
+                background: #fff;
             }
-            td:last-child:before { display: none; } /* Hide label */
+            td[data-label="Actions"]:before { display: none; } 
 
-            /* Input Fixes */
-            .email-input { width: 100%; text-align: right; }
+            /* Input Fix */
+            .email-input { width: 100%; text-align: right; max-width: 200px; }
         }
 
         /* --- CHAT WIDGET STYLES --- */
@@ -142,7 +149,6 @@
             border-radius: 12px; overflow: hidden; border: 1px solid #ddd; box-shadow: 0 5px 25px rgba(0,0,0,0.2);
             z-index: 50;
         }
-        /* Mobile Widget */
         @media (max-width: 768px) {
             #right-panel.mode-widget {
                 width: 92%; left: 4%; right: 4%; bottom: 90px; height: 60vh;
@@ -152,9 +158,17 @@
 
         /* --- FAB --- */
         #chat-fab {
-            position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
-            background-color: var(--docu-black); border-radius: 50%; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            cursor: pointer; z-index: 100; display: none; align-items: center; justify-content: center; color: white; transition: transform 0.2s;
+            position: fixed; bottom: 20px; right: 20px;
+            width: 60px; height: 60px;
+            background-color: var(--docu-black);
+            border-radius: 50%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            cursor: pointer;
+            z-index: 100;
+            display: none; 
+            align-items: center; justify-content: center;
+            color: white;
+            transition: transform 0.2s;
         }
         #chat-fab:hover { transform: scale(1.05); }
         #chat-fab svg { width: 30px; height: 30px; }
@@ -168,7 +182,7 @@
         
         #chat-history { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; background: #fff; }
         
-        .chat-row { display: flex; align-items: flex-end; gap: 10px; }
+        .chat-row { display: flex; align-items: flex-end; gap: 10px; width: 100%; }
         .chat-row.user { flex-direction: row-reverse; }
         .avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
         .avatar.agent { background-color: var(--docu-black); color: #fff; }
@@ -178,12 +192,12 @@
         .chat-row.user .message { background-color: var(--brand-color); color: white; border-bottom-right-radius: 2px; }
         .chat-row.agent .message { background-color: #f0f4f8; color: #16325c; border-bottom-left-radius: 2px; }
         
-        #chat-input-area { padding: 15px; padding-bottom: 200px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; }
+        #chat-input-area { padding: 15px; padding-bottom: 30px; background: white; border-top: 1px solid #eee; display: flex; gap: 10px; }
         #chat-input { flex: 1; padding: 10px 15px; border: 1px solid #ccc; border-radius: 24px; font-size: 14px; outline: none; }
         #send-btn { background-color: var(--brand-color); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
 
         /* --- UTILITY --- */
-        .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; }
+        .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; text-align: center; }
         .submit-btn { padding: 12px 24px; font-size: 16px; width: 100%; background-color: var(--brand-color); color: white; border: none; border-radius: 4px; cursor: pointer; }
         
         button, .edit-btn, .save-btn, .view-sow-btn { background-color: var(--brand-color); color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; text-decoration: none; display: inline-block; }
@@ -323,11 +337,7 @@
 
         // --- LAYOUT LOGIC ---
         function switchToTableMode() {
-            // 1. Show Table
             leftPanel.classList.add('active');
-            
-            // 2. Desktop: right-panel stays active (Split View)
-            // 3. Mobile: right-panel hides (becomes widget)
             if (window.innerWidth <= 768) {
                 rightPanel.className = 'mode-hidden';
                 fab.classList.add('visible');
@@ -399,7 +409,12 @@
                     switchToTableMode();
                 } 
                 else if (data.action === 'start_polling') {
-                    leftPanel.classList.add('active'); // Ensure visible
+                    // For mobile, hide chat so they see spinner
+                    if (window.innerWidth <= 768) {
+                        rightPanel.className = 'mode-hidden';
+                        fab.classList.add('visible');
+                    }
+                    
                     startProcess(data.task_id);
                 }
             })
@@ -443,7 +458,6 @@
                 
                 const prodCount = opp.ProductCount !== undefined ? opp.ProductCount : '-';
 
-                // CARD VIEW LABELS
                 row.innerHTML = `
                     <td data-label="Select"><input type="checkbox" name="opportunity_ids" value="${opp.Id}" ${isDisabled ? 'disabled' : ''}></td>
                     <td data-label="Project ID"><small style="color:#999">${opp.Id}</small></td>
@@ -468,17 +482,9 @@
                 `;
                 tableBody.appendChild(row);
             });
-            
-            addMessage(`I've loaded ${data.length} records.`, 'agent');
         }
 
         function startProcess(taskId) {
-            // Mobile: Hide Chat, Show Spinner
-            if (window.innerWidth <= 768) {
-                rightPanel.classList.add('mode-hidden');
-                fab.classList.add('visible');
-            }
-            
             spinner.style.display = 'flex';
             if(checklist) checklist.innerHTML = '';
             consoleDiv.style.display = 'block'; 
@@ -532,13 +538,14 @@
                             setTimeout(() => { spinner.style.display = 'none'; }, 2000);
                             toast.className = 'show';
                             setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
-                            addMessage("✅ All tasks completed.", 'agent');
+                            addMessage("✅ All tasks completed successfully.", 'agent');
                         }
                     })
                     .catch(err => console.error("Poll error:", err));
             }, 1500);
         }
 
+        // ... (Keep editEmail and saveEmail functions) ...
         function editEmail(editButton) {
             const row = editButton.closest('tr');
             row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
@@ -565,8 +572,7 @@
                 } else {
                     alert('Error saving email: ' + data.message);
                 }
-            })
-            .catch(error => { console.error(error); });
+            });
         }
     </script>
 </body>
