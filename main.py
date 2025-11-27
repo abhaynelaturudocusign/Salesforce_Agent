@@ -30,31 +30,103 @@ tools = [
     )
 ] # Note: Abbreviated descriptions for brevity. Use your full descriptions.
 
-template = """
-Answer the following questions as best you can. You have access to the following tools:
+# --- NEW: Conversational Agent Tools ---
+# We give the chat agent access to "Read" data, but not "Write" (Close deals)
+chat_tools = [
+    Tool(
+        name="Fetch Open Projects",
+        func=get_open_opportunities,
+        description="Use this when the user wants to see a list of active, open, or new opportunities/projects."
+    ),
+    Tool(
+        name="Search History",
+        func=search_history_for_chat, # <--- Make sure this is imported from tools.py
+        description="Use this to find information about PAST, CLOSED, or SENT deals. Useful for questions like 'Did we send to United Oil?' or 'Get me the link for Acme'."
+    )
+]
 
+# --- NEW: The Autonomous Chat Agent ---
+chat_template = """
+You are 'The Closer', a smart Sales Operations Assistant.
+
+You have access to the following tools to answer user questions:
 {tools}
 
-Use the following format:
+**INSTRUCTIONS:**
+1. **Reasoning:** Always think about which tool you need (if any) to answer the user.
+2. **Chatting:** If the user says "Hi" or asks a general question, just answer naturally. Do not use tools.
+3. **Data Fetching:** If the user wants to see a list of projects, use the 'Fetch Open Projects' tool.
+4. **History:** If the user asks about a specific past deal, use 'Search History'.
 
+**SPECIAL UI TRIGGERS:**
+If you use a tool that returns a list of data (like 'Fetch Open Projects'), you must start your Final Answer with the tag: **[RENDER_TABLE]**.
+If the user explicitly wants to START/EXECUTE the closing process for selected deals, you must start your Final Answer with the tag: **[TRIGGER_CLOSING]**.
+
+FORMAT:
 Question: the input question you must answer
 Thought: you should always think about what to do
 Action: the action to take, should be one of [{tool_names}]
 Action Input: the input to the action
 Observation: the result of the action
-... (this Thought/Action/Action Input/Observation can repeat N times)
+... (repeat Thought/Action/Observation as needed)
 Thought: I now know the final answer
-Final Answer: the final answer to the original input question
+Final Answer: [TAG IF NEEDED] The final response to the user.
 
 Begin!
 
 Question: {input}
 Thought:{agent_scratchpad}
 """
-prompt = PromptTemplate.from_template(template)
-agent = create_react_agent(llm, tools, prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
 
+chat_prompt = PromptTemplate.from_template(chat_template)
+chat_agent_executor = AgentExecutor(
+    agent=create_react_agent(llm, chat_tools, chat_prompt),
+    tools=chat_tools,
+    verbose=True,
+    handle_parsing_errors=True
+)
+
+def handle_chat_interaction(user_message):
+    """
+    Fully autonomous agent handling.
+    Returns: { "response": "...", "action": "..." }
+    """
+    print(f"🧠 Agent pondering: {user_message}")
+    
+    try:
+        # The Agent does the thinking now. We don't write if/else statements.
+        response = chat_agent_executor.invoke({"input": user_message})
+        final_text = response['output']
+        
+        # Parse the Agent's decision tags
+        action = "none"
+        clean_text = final_text
+        
+        if "[RENDER_TABLE]" in final_text:
+            action = "render_table"
+            clean_text = final_text.replace("[RENDER_TABLE]", "").strip()
+            # If the agent fetched data, we need to re-fetch it for the UI 
+            # (Or, ideally, the tool returns it, but for now we re-fetch to keep it simple)
+            data_payload = get_open_opportunities() 
+        
+        elif "[TRIGGER_CLOSING]" in final_text:
+            action = "trigger_closing"
+            clean_text = final_text.replace("[TRIGGER_CLOSING]", "").strip()
+            data_payload = None
+        
+        else:
+            # It's just a chat response (e.g. "Here is the link for United Oil...")
+            data_payload = None
+
+        return {
+            "response": clean_text,
+            "action": action,
+            "data": json.loads(data_payload) if action == "render_table" else None
+        }
+
+    except Exception as e:
+        print(f"Agent Error: {e}")
+        return {"response": "I encountered an error processing your request.", "action": "none"}
 
 # --- AGENT WORKER FUNCTIONS ---
 def start_deal_process(opportunity_id, template_id, signer_role_name, task_id, tasks, tasks_lock, log_handler, use_docgen):

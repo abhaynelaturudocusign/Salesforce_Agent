@@ -10,7 +10,7 @@ import threading
 import uuid
 
 # Import the agent functions from your main.py file
-from main import start_deal_process, finalize_deal 
+from main import start_deal_process, finalize_deal,handle_chat_interaction
 # Import the new tool from tools.py
 from tools import get_open_opportunities
 from main import classify_intent
@@ -283,38 +283,24 @@ def agent_chat():
     data = request.get_json()
     user_message = data.get('message', '')
     selected_ids = data.get('selected_ids', [])
-    
-    # --- 1. READ CONTEXT FROM UI ---
     use_docgen = data.get('use_docgen') == 'on'
-    
-    # 2. Call the Brain
-    decision = classify_intent(user_message)
-    intent = decision.get('intent')
-    bot_response = decision.get('response')
 
+    # --- CALL THE AUTONOMOUS AGENT ---
+    result = handle_chat_interaction(user_message)
+    
     response_payload = {
-        "message": bot_response,
-        "action": "none",
-        "data": None
+        "message": result['response'],
+        "action": result['action'],
+        "data": result.get('data')
     }
 
-    if intent == "FETCH_OPEN":
-        from tools import get_open_opportunities
-        opps_json = get_open_opportunities()
-        response_payload["action"] = "render_table"
-        response_payload["data"] = json.loads(opps_json)
-        
-    elif intent == "FETCH_HISTORY": # <--- NEW BRANCH
-        from tools import get_local_history
-        # Read from the local JSON file
-        history_json = get_local_history()
-        response_payload["action"] = "render_table"
-        response_payload["data"] = json.loads(history_json)
-
-    elif intent == "EXECUTE_CLOSING":
+    # If the Agent decided we need to close deals, we execute the logic here
+    if result['action'] == "trigger_closing":
         if not selected_ids:
-            response_payload["message"] = "I can help with that, but please select the projects from the list first."
+            response_payload["message"] = "I can do that, but please select the projects from the list first."
+            response_payload["action"] = "none"
         else:
+            # ... (Your existing Task ID generation logic) ...
             task_id = str(uuid.uuid4())
             with tasks_lock:
                 tasks[task_id] = {
@@ -327,17 +313,16 @@ def agent_chat():
                     "results": {}
                 }
             
-            # --- 3. SELECT TEMPLATE BASED ON CONTEXT ---
+            # ... (Your existing Template selection logic) ...
             if use_docgen:
-                template_id = "dba32743-cb50-42d1-beec-abd6a2d91a70" # DocGen ID
+                template_id = "dba32743-cb50-42d1-beec-abd6a2d91a70"
             else:
-                template_id = "8cbe3647-6fce-49fb-877a-7911cf278316" # Legacy ID
+                template_id = "8cbe3647-6fce-49fb-877a-7911cf278316"
             
             signer_role = "ClientSigner"
 
             for opp_id in selected_ids:
                 log_handler = AgentLogHandler(task_id, opp_id)
-                # --- 4. PASS use_docgen TO WORKER ---
                 thread = threading.Thread(
                     target=start_deal_process, 
                     args=(opp_id, template_id, signer_role, task_id, tasks, tasks_lock, log_handler, use_docgen)
