@@ -678,7 +678,8 @@ def create_composite_sow_envelope(tool_input: str) -> str:
         print(f"DocuSign API Error Detail: {e}")
         return f"Error generating SOW: {e}"
 
-def get_open_opportunities() -> str:
+# We add 'tool_input' to swallow whatever the Agent sends
+def get_open_opportunities(tool_input: str = "") -> str:
     """
     Fetches all Opportunities in 'Negotiation/Review', including:
     1. Basic Opportunity Details

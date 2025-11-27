@@ -7,6 +7,7 @@ from tools import * # Import all tools
 from tools import search_history_for_chat
 
 # --- AGENT SETUP (This is the core agent configuration) ---
+# --- 1. SHARED LLM SETUP ---
 llm = AzureChatOpenAI(
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
@@ -14,6 +15,13 @@ llm = AzureChatOpenAI(
     api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
     temperature=0
 )
+
+# ==============================================================================
+#  AGENT 1: THE WORKER (Execution Engine)
+#  Used by: start_deal_process, finalize_deal
+# ==============================================================================
+
+# Full Toolset for doing the work
 
 tools = [
     Tool(name="Get Opportunity Details", func=get_opportunity_details, description="..."),
@@ -29,6 +37,31 @@ tools = [
         description="Generates an SOW using a WORD TEMPLATE (DocGen). Use this if asked for 'DocGen' or 'Word'."
     )
 ] # Note: Abbreviated descriptions for brevity. Use your full descriptions.
+
+template = """
+Answer the following questions as best you can. You have access to the following tools:
+
+{tools}
+
+Use the following format:
+
+Question: the input question you must answer
+Thought: you should always think about what to do
+Action: the action to take, should be one of [{tool_names}]
+Action Input: the input to the action
+Observation: the result of the action
+... (this Thought/Action/Action Input/Observation can repeat N times)
+Thought: I now know the final answer
+Final Answer: the final answer to the original input question
+
+Begin!
+
+Question: {input}
+Thought:{agent_scratchpad}
+"""
+prompt = PromptTemplate.from_template(template)
+agent = create_react_agent(llm, tools, prompt)
+agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, handle_parsing_errors=True)
 
 # --- NEW: Conversational Agent Tools ---
 # We give the chat agent access to "Read" data, but not "Write" (Close deals)
@@ -49,18 +82,17 @@ chat_tools = [
 chat_template = """
 You are 'The Closer', a smart Sales Operations Assistant.
 
-You have access to the following tools to answer user questions:
+You have access to the following tools:
 {tools}
 
 **INSTRUCTIONS:**
-1. **Reasoning:** Always think about which tool you need (if any) to answer the user.
-2. **Chatting:** If the user says "Hi" or asks a general question, just answer naturally. Do not use tools.
-3. **Data Fetching:** If the user wants to see a list of projects, use the 'Fetch Open Projects' tool.
-4. **History:** If the user asks about a specific past deal, use 'Search History'.
+1. **Reasoning:** Always think about if you need a tool.
+2. **Chatting:** If the user input is just a greeting ("Hi", "Thanks", "nothing"), DO NOT try to use a tool. Just reply conversationally.
+3. **Format:**
+   - If you use a tool, use the standard Format (Action/Action Input).
+   - If you just want to reply to the user, YOU MUST USE THE FORMAT: "Final Answer: [Your text here]".
 
-**SPECIAL UI TRIGGERS:**
-If you use a tool that returns a list of data (like 'Fetch Open Projects'), you must start your Final Answer with the tag: **[RENDER_TABLE]**.
-If the user explicitly wants to START/EXECUTE the closing process for selected deals, you must start your Final Answer with the tag: **[TRIGGER_CLOSING]**.
+**CRITICAL:** If you do not use "Final Answer:", the system will crash.
 
 FORMAT:
 Question: the input question you must answer
