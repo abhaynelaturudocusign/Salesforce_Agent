@@ -275,58 +275,7 @@ def task_status(task_id):
         task = tasks.get(task_id, {})
     return jsonify(task)
 
-# listener.py (Updated classify_intent)
 
-def classify_intent(user_message):
-    """
-    Uses the LLM to both REPLY to the user and DECIDE on an action.
-    """
-    
-    prompt = f"""
-    You are a helpful, intelligent Sales Operations Assistant for GenWatt Inc.
-    Your goal is to help users manage Salesforce Opportunities and generate SOWs.
-
-    Analyze the user's message: "{user_message}"
-
-    Return a JSON object with two keys: "intent" and "response".
-
-    RULES FOR 'INTENT':
-    1. If the user asks to see, list, show, or find opportunities/projects:
-       Set "intent" to "FETCH_DATA".
-    
-    2. If the user explicitly asks to generate SOWs, send envelopes, or "close" the selected deals:
-       Set "intent" to "EXECUTE_CLOSING".
-    
-    3. For ANY other conversation (greetings, questions about your capabilities, general help):
-       Set "intent" to "GENERAL_CHAT".
-
-    RULES FOR 'RESPONSE':
-    - If intent is FETCH_DATA: Write a brief confirmation like "Sure, let me pull up the current open opportunities for you."
-    - If intent is EXECUTE_CLOSING: Write a confirmation like "Understood. I will start the SOW generation process for the selected deals immediately."
-    - If intent is GENERAL_CHAT: **GENERATE A REAL, HELPFUL AI RESPONSE.** Answer their question, introduce yourself, or explain that you can help them generate SOWs and manage deals. Be conversational and professional.
-
-    Output ONLY valid JSON.
-    """
-    
-    try:
-        # We use the same LLM instance configured in this file
-        result = llm.invoke(prompt)
-        content = result.content.strip()
-        
-        # Clean up potential markdown formatting from the LLM
-        if content.startswith("```json"): 
-            content = content[7:]
-        if content.endswith("```"): 
-            content = content[:-3]
-            
-        return json.loads(content.strip())
-        
-    except Exception as e:
-        print(f"Intent classification failed: {e}")
-        return {
-            "intent": "GENERAL_CHAT", 
-            "response": "I apologize, but I'm having trouble connecting to my brain right now. You can try asking me to 'Show opportunities'."
-        }
     
 @app.route('/agent-chat', methods=['POST'])
 def agent_chat():
