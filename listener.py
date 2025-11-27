@@ -275,5 +275,120 @@ def task_status(task_id):
         task = tasks.get(task_id, {})
     return jsonify(task)
 
+# listener.py (Updated classify_intent)
+
+def classify_intent(user_message):
+    """
+    Uses the LLM to both REPLY to the user and DECIDE on an action.
+    """
+    
+    prompt = f"""
+    You are a helpful, intelligent Sales Operations Assistant for GenWatt Inc.
+    Your goal is to help users manage Salesforce Opportunities and generate SOWs.
+
+    Analyze the user's message: "{user_message}"
+
+    Return a JSON object with two keys: "intent" and "response".
+
+    RULES FOR 'INTENT':
+    1. If the user asks to see, list, show, or find opportunities/projects:
+       Set "intent" to "FETCH_DATA".
+    
+    2. If the user explicitly asks to generate SOWs, send envelopes, or "close" the selected deals:
+       Set "intent" to "EXECUTE_CLOSING".
+    
+    3. For ANY other conversation (greetings, questions about your capabilities, general help):
+       Set "intent" to "GENERAL_CHAT".
+
+    RULES FOR 'RESPONSE':
+    - If intent is FETCH_DATA: Write a brief confirmation like "Sure, let me pull up the current open opportunities for you."
+    - If intent is EXECUTE_CLOSING: Write a confirmation like "Understood. I will start the SOW generation process for the selected deals immediately."
+    - If intent is GENERAL_CHAT: **GENERATE A REAL, HELPFUL AI RESPONSE.** Answer their question, introduce yourself, or explain that you can help them generate SOWs and manage deals. Be conversational and professional.
+
+    Output ONLY valid JSON.
+    """
+    
+    try:
+        # We use the same LLM instance configured in this file
+        result = llm.invoke(prompt)
+        content = result.content.strip()
+        
+        # Clean up potential markdown formatting from the LLM
+        if content.startswith("```json"): 
+            content = content[7:]
+        if content.endswith("```"): 
+            content = content[:-3]
+            
+        return json.loads(content.strip())
+        
+    except Exception as e:
+        print(f"Intent classification failed: {e}")
+        return {
+            "intent": "GENERAL_CHAT", 
+            "response": "I apologize, but I'm having trouble connecting to my brain right now. You can try asking me to 'Show opportunities'."
+        }
+    
+@app.route('/agent-chat', methods=['POST'])
+def agent_chat():
+    data = request.get_json()
+    user_message = data.get('message', '')
+    # The frontend sends selected IDs if the table is visible
+    selected_ids = data.get('selected_ids', []) 
+    
+    # 1. Decide what to do
+    decision = classify_intent(user_message)
+    intent = decision.get('intent')
+    bot_response = decision.get('response')
+
+    response_payload = {
+        "message": bot_response,
+        "action": "none",
+        "data": None
+    }
+
+    # 2. Handle "Show Projects"
+    if intent == "FETCH_DATA":
+        from tools import get_open_opportunities
+        opps_json = get_open_opportunities()
+        # Send the data back to the frontend to render the table
+        response_payload["action"] = "render_table"
+        response_payload["data"] = json.loads(opps_json)
+
+    # 3. Handle "Execute Closing"
+    elif intent == "EXECUTE_CLOSING":
+        if not selected_ids:
+            response_payload["message"] = "I can do that, but you haven't selected any projects yet. Please ask me to 'Show projects', select the ones you want, and then ask me to close them."
+        else:
+            # Trigger the exact same logic as the button click
+            # We reuse the code from /start-closing but call it internally
+            task_id = str(uuid.uuid4())
+            with tasks_lock:
+                tasks[task_id] = {
+                    "total": len(selected_ids), 
+                    "completed": 0, 
+                    "status": "running",
+                    "logs": [],
+                    "current_step": "🚀 Agent triggered via Chat...",
+                    "finished_deals": [],
+                    "results": {}
+                }
+
+            # Configure Template ID (Defaulting to DocGen)
+            template_id = "a1b2c3d4-e5f6-7890-abcd-1234567890ab" # Your DocGen GUID
+            signer_role = "ClientSigner"
+
+            for opp_id in selected_ids:
+                log_handler = AgentLogHandler(task_id, opp_id)
+                thread = threading.Thread(
+                    target=start_deal_process, 
+                    args=(opp_id, template_id, signer_role, task_id, tasks, tasks_lock, log_handler, True) # True for use_docgen
+                )
+                thread.start()
+            
+            response_payload["action"] = "start_polling"
+            response_payload["task_id"] = task_id
+
+    return jsonify(response_payload)
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8080)

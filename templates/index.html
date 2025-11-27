@@ -2,35 +2,138 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>The Closer</title>
+    <title>The Closer AI</title>
     <style>
-        /* ... (Keep existing global styles) ... */
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f9; min-height: 100vh; margin: 0; padding: 2em; box-sizing: border-box; }
+        /* --- GLOBAL LAYOUT --- */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #f4f6f9; 
+            height: 100vh; 
+            margin: 0; 
+            overflow: hidden; /* Prevent body scroll, panels scroll internally */
+        }
+        
+        #main-wrapper {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            transition: all 0.5s ease;
+        }
+
+        /* --- LEFT PANEL (Data Table) --- */
+        #left-panel {
+            flex: 0 0 0%; /* Starts hidden */
+            width: 0;
+            opacity: 0;
+            background: #f4f6f9;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            transition: all 0.5s ease;
+            padding: 0;
+            position: relative;
+        }
+        #left-panel.active {
+            flex: 0 0 70%; /* Expands to 70% width */
+            width: 70%;
+            opacity: 1;
+            padding: 2em;
+        }
+
+        /* --- RIGHT PANEL (Chat Interface) --- */
+        #right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #fff;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+            z-index: 20;
+        }
+        
+        #chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            background: #fff;
+        }
+        #chat-header h2 { margin: 0; color: #032d60; font-size: 1.2rem; }
+
+        #chat-history {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #fff;
+        }
+        
+        /* Chat Bubbles */
+        .message {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            position: relative;
+            animation: popIn 0.3s ease;
+        }
+        .message.user {
+            align-self: flex-end;
+            background-color: #0070d2;
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+        .message.agent {
+            align-self: flex-start;
+            background-color: #f4f6f9;
+            color: #16325c;
+            border-bottom-left-radius: 2px;
+        }
+        
+        #chat-input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+        #chat-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 24px;
+            font-size: 14px;
+            outline: none;
+            transition: border 0.2s;
+        }
+        #chat-input:focus { border-color: #0070d2; }
+        #send-btn {
+            background-color: #0070d2;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #send-btn:hover { background-color: #005fb2; }
+
+        /* --- EXISTING STYLES (Table, Buttons, Spinner) --- */
         h1 { color: #032d60; margin-top: 0; }
         h2 { color: #54698d; font-weight: 300; font-size: 1.2em; margin-bottom: 20px; }
         .form-container { position: relative; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
         
-        /* Table Styles */
         table { width: 100%; border-collapse: collapse; }
         th, td { border-bottom: 1px solid #ddd; padding: 12px 15px; text-align: left; vertical-align: middle; }
         th { background-color: #f3f3f3; color: #555; font-weight: 600; text-transform: uppercase; font-size: 0.85em; }
         tr:hover { background-color: #f9f9f9; }
         
-        /* Button Styles */
-        button, .edit-btn, .save-btn, .view-sow-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; }
+        button, .edit-btn, .save-btn, .view-sow-btn { background-color: #0070d2; color: white; padding: 6px 12px; border: none; cursor: pointer; border-radius: 4px; font-size: 13px; transition: background 0.2s; text-decoration: none; display: inline-block; }
         button:hover { background-color: #005fb2; }
         .edit-btn { background-color: #fff; color: #0070d2; border: 1px solid #0070d2; }
         .edit-btn:hover { background-color: #f4f6f9; }
-        
-        /* View SOW Button Style */
-        .view-sow-btn { 
-            background-color: #ff9800; /* Orange */
-            text-decoration: none; 
-            display: none; /* Hidden by default */
-            font-weight: bold;
-            font-size: 12px;
-            padding: 5px 10px;
-        }
+        .view-sow-btn { background-color: #ff9800; display: none; margin-left: 5px; font-weight: bold; font-size: 11px; padding: 4px 8px;}
         .view-sow-btn:hover { background-color: #e68900; }
 
         .submit-btn-container { padding: 20px; background-color: white; border-top: 1px solid #eee; }
@@ -40,7 +143,7 @@
         .email-input { padding: 6px; width: 95%; border: 1px solid #ccc; border-radius: 4px; }
         .edit-mode { display: none; }
         
-        /* Console, Spinner, Toast Styles (Same as before) */
+        /* Console, Spinner, Toast */
         #agent-console { margin-top: 25px; background-color: #1e1e1e; color: #00ff00; font-family: "Courier New", Courier, monospace; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); border: 1px solid #333; }
         .log-entry { margin-bottom: 5px; font-size: 13px; line-height: 1.4; border-bottom: 1px solid #333; padding-bottom: 2px;}
         #toast { visibility: hidden; min-width: 300px; background-color: #04844b; color: white; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1001; left: 50%; transform: translateX(-50%); top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
@@ -52,301 +155,355 @@
         #loading-text { color: #0070d2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-weight: 500; font-size: 16px; text-align: center; animation: pulse 2s infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+        @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         #completed-list { list-style: none; padding: 0; margin-top: 15px; width: 100%; text-align: center; }
         .completed-item { color: #04844b; background-color: #eefcf6; padding: 8px; margin-bottom: 5px; border-radius: 4px; font-size: 14px; font-weight: 600; border: 1px solid #c3e6cb; animation: fadein 0.5s; }
-    
-        .toggle-container {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-            font-size: 14px;
-            color: #555;
-        }
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 40px;
-            height: 20px;
-            margin-right: 10px;
-        }
+
+        /* Toggle Switch */
+        .toggle-container { display: flex; align-items: center; margin-bottom: 15px; font-size: 14px; color: #555; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; margin-right: 10px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #ccc;
-            transition: .4s;
-            border-radius: 20px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px; width: 16px;
-            left: 2px; bottom: 2px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #0070d2; }
         input:checked + .slider:before { transform: translateX(20px); }
 
     </style>
 </head>
 <body>
-    <h1>Auto Generate SOWs and send for signature</h1>
-    <h2>Select the projects and ask the SOW agent to generate, send and attach SOWs</h2>
+
+<div id="main-wrapper">
     
-    <div class="form-container">
-        <div id="spinner-overlay">
-            <div class="spinner"></div>
-            <div id="loading-text">Initializing...</div>
-            <ul id="completed-list"></ul>
+    <div id="left-panel">
+        <h1>Auto Generate SOWs and send for signature</h1>
+        <h2>Select the projects and ask the SOW agent to generate, send and attach SOWs</h2>
+        
+        <div class="form-container">
+            <div id="spinner-overlay">
+                <div class="spinner"></div>
+                <div id="loading-text">Initializing...</div>
+                <ul id="completed-list"></ul>
+            </div>
+
+            <form id="deal-form">
+                <div class="toggle-container">
+                    <label class="switch">
+                        <input type="checkbox" name="use_docgen" id="docgen-toggle">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Use DocuSign DocGen (Word Template)</span>
+                </div>
+
+                <table id="opp-table">
+                    <thead>
+                        <tr>
+                            <th>Select</th>
+                            <th>Project ID</th>
+                            <th>Project Name</th>
+                            <th>Total Value</th>
+                            <th style="text-align: center;"># Products</th>
+                            <th>Project Contact Name</th>
+                            <th>Project Contact Email</th>
+                            <th>Delivery Date</th>
+                            <th>SOW Link</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        </tbody>
+                </table>
+                <div class="submit-btn-container">
+                    <button type="submit" formnovalidate class="submit-btn">Start Closing Selected Deals</button>
+                </div>
+            </form>
         </div>
 
-        <form id="deal-form">
-
-            <div class="toggle-container">
-                <label class="switch">
-                    <input type="checkbox" name="use_docgen" id="docgen-toggle">
-                    <span class="slider"></span>
-                </label>
-                <span>Use DocuSign DocGen (Word Template)</span>
-            </div>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>Select</th>
-                        <th>Project ID</th>
-                        <th>Project Name</th>
-                        <th>Total Value</th>
-                        <th style="text-align: center;"># Products</th>
-                        <th>Project Contact Name</th>
-                        <th>Project Contact Email</th>
-                        <th>Delivery Date</th>
-                        
-                        <th>SOW Link</th>
-                        
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for opp in opportunities %}
-                    <tr id="row-{{ opp.Id }}" data-contact-id="{{ opp.PrimaryContactId }}">
-                        <td>
-                            <input type="checkbox" name="opportunity_ids" value="{{ opp.Id }}" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>
-                        </td>
-                        <td><small style="color:#999">{{ opp.Id }}</small></td>
-                        <td>
-                            {% if sf_base_url %}
-                                <a href="{{ sf_base_url }}/{{ opp.Id }}" target="_blank" class="opp-link">{{ opp.Name }}</a>
-                            {% else %}
-                                {{ opp.Name }}
-                            {% endif %}
-                        </td>
-                        <td>${{ opp.Amount }}</td>
-                        <td style="text-align: center;">
-                            <span style="background: #eef4ff; color: #2e844a; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.9em;">
-                                {{ opp.ProductCount }}
-                            </span>
-                        </td>
-                        <td>{{ opp.PrimaryContactName }}</td>
-                        <td>
-                            <div class="view-mode"><span class="email-text">{{ opp.PrimaryContactEmail }}</span></div>
-                            <div class="edit-mode"><input type="email" class="email-input" value="{{ opp.PrimaryContactEmail }}"></div>
-                        </td>
-                        <td>{{ opp.CloseDate }}</td>
-                        
-                        <td>
-                            <a href="#" class="view-sow-btn" target="_blank">View SOW</a>
-                        </td>
-
-                        <td>
-                            <div class="view-mode">
-                                 <button type="button" class="edit-btn" onclick="editEmail(this)" {% if opp.PrimaryContactEmail == 'N/A' %}disabled{% endif %}>Edit</button>
-                            </div>
-                            <div class="edit-mode">
-                                <button type="button" class="save-btn" onclick="saveEmail(this)">Save</button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            <div class="submit-btn-container">
-                <button type="submit" formnovalidate class="submit-btn">Start Closing Selected Deals</button>
-            </div>
-        </form>
+        <div id="agent-console">
+            <div style="color: #888; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 10px;">AGENTS LIVE ACTIVITY LOG</div>
+            <div id="console-content"></div>
+        </div>
     </div>
 
-    <div id="agent-console">
-        <div style="color: #888; border-bottom: 1px solid #555; padding-bottom: 5px; margin-bottom: 10px;">AGENTS LIVE ACTIVITY LOG</div>
-        <div id="console-content"></div>
+    <div id="right-panel">
+        <div id="chat-header">
+            <h2>🤖 SOW Operations Agent</h2>
+        </div>
+        <div id="chat-history">
+            <div class="message agent">
+                Hello! I am your SOW Agent. <br><br>
+                I can help you find open projects and generate contracts.<br>
+                Try asking: <b>"Show me open projects"</b>.
+            </div>
+        </div>
+        <div id="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type your request..." autocomplete="off">
+            <button id="send-btn">➤</button>
+        </div>
     </div>
-    <div id="toast">Agent has successfully processed all envelopes!</div>
 
-    <script>
-        const form = document.getElementById('deal-form');
-        const spinner = document.getElementById('spinner-overlay');
-        const loadingText = document.getElementById('loading-text');
-        const toast = document.getElementById('toast');
-        const consoleDiv = document.getElementById('agent-console');
-        const consoleContent = document.getElementById('console-content');
+</div>
 
-        if (form) {
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
+<div id="toast">Agent has successfully processed all envelopes!</div>
+
+<script>
+    // --- VARIABLES ---
+    const chatInput = document.getElementById('chat-input');
+    const chatHistory = document.getElementById('chat-history');
+    const leftPanel = document.getElementById('left-panel');
+    const tableBody = document.getElementById('table-body');
+    const form = document.getElementById('deal-form');
+    const spinner = document.getElementById('spinner-overlay');
+    const loadingText = document.getElementById('loading-text');
+    const toast = document.getElementById('toast');
+    const consoleDiv = document.getElementById('agent-console');
+    const consoleContent = document.getElementById('console-content');
+
+    // --- CHAT LOGIC ---
+    chatInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') sendMessage(); });
+    document.getElementById('send-btn').addEventListener('click', sendMessage);
+
+    function sendMessage() {
+        const text = chatInput.value.trim();
+        if (!text) return;
+
+        addMessage(text, 'user');
+        chatInput.value = '';
+
+        // Get selected checkboxes if table is visible
+        const selectedIds = Array.from(document.querySelectorAll('input[name="opportunity_ids"]:checked')).map(cb => cb.value);
+
+        // Get DocGen toggle state
+        const useDocGen = document.getElementById('docgen-toggle') ? document.getElementById('docgen-toggle').checked : false;
+
+        fetch('/agent-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                message: text, 
+                selected_ids: selectedIds,
+                use_docgen: useDocGen ? 'on' : 'off' // Pass toggle state to chat
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.message) addMessage(data.message, 'agent');
+            
+            if (data.action === 'render_table') {
+                renderTable(data.data);
+            } 
+            else if (data.action === 'start_polling') {
+                // Trigger UI loading state
                 spinner.style.display = 'flex';
                 loadingText.innerText = "🚀 Initializing Agents...";
-                document.getElementById('completed-list').innerHTML = ''; 
-                
                 consoleDiv.style.display = 'block'; 
-                consoleContent.innerHTML = '<div class="log-entry">Starting process...</div>';
+                consoleContent.innerHTML = '<div class="log-entry">Agent started via Chat...</div>';
+                document.getElementById('completed-list').innerHTML = '';
                 
-                const formData = new FormData(form);
+                pollStatus(data.task_id);
+            }
+        })
+        .catch(err => {
+            addMessage("Error connecting to server.", 'agent');
+            console.error(err);
+        });
+    }
 
-                fetch('/start-closing', {
-                    method: 'POST',
-                    body: formData
-                })
+    function addMessage(text, sender) {
+        const div = document.createElement('div');
+        div.className = `message ${sender}`;
+        div.innerHTML = text;
+        chatHistory.appendChild(div);
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    function renderTable(data) {
+        leftPanel.classList.add('active'); // Slide out panel
+        tableBody.innerHTML = '';
+        
+        if (!data || data.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;">No open projects found.</td></tr>';
+            return;
+        }
+
+        // Safely get Base URL (injected via Jinja in previous step, fallback to empty)
+        const sfBaseUrl = "{{ sf_base_url }}";
+
+        data.forEach(opp => {
+            const row = document.createElement('tr');
+            row.id = `row-${opp.Id}`;
+            row.setAttribute('data-contact-id', opp.PrimaryContactId);
+
+            // Logic for disabled checkbox
+            const isDisabled = opp.PrimaryContactEmail === 'N/A';
+            const checkboxHtml = `<input type="checkbox" name="opportunity_ids" value="${opp.Id}" ${isDisabled ? 'disabled' : ''}>`;
+            
+            // Logic for Link
+            let nameHtml = opp.Name;
+            if (sfBaseUrl && sfBaseUrl !== "None") {
+                nameHtml = `<a href="${sfBaseUrl}/${opp.Id}" target="_blank" class="opp-link">${opp.Name}</a>`;
+            }
+
+            row.innerHTML = `
+                <td>${checkboxHtml}</td>
+                <td><small style="color:#999">${opp.Id}</small></td>
+                <td>${nameHtml}</td>
+                <td>$${opp.Amount}</td>
+                <td style="text-align: center;"><span style="background: #eef4ff; color: #2e844a; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.9em;">${opp.ProductCount}</span></td>
+                <td>${opp.PrimaryContactName}</td>
+                <td>
+                    <div class="view-mode"><span class="email-text">${opp.PrimaryContactEmail}</span></div>
+                    <div class="edit-mode"><input type="email" class="email-input" value="${opp.PrimaryContactEmail}"></div>
+                </td>
+                <td>${opp.CloseDate}</td>
+                <td><a href="#" class="view-sow-btn" target="_blank">View SOW</a></td>
+                <td>
+                    <div class="view-mode">
+                         <button type="button" class="edit-btn" onclick="editEmail(this)" ${isDisabled ? 'disabled' : ''}>Edit</button>
+                    </div>
+                    <div class="edit-mode">
+                        <button type="button" class="save-btn" onclick="saveEmail(this)">Save</button>
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+        
+        addMessage("I've found " + data.length + " open projects. Select the ones you want and click <b>'Start Closing'</b> or ask me to <b>'Close selected'</b>.", 'agent');
+    }
+
+    // --- FORM BUTTON LOGIC (Keep existing logic to sync with Chat) ---
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        spinner.style.display = 'flex';
+        loadingText.innerText = "🚀 Initializing Agents...";
+        document.getElementById('completed-list').innerHTML = '';
+        consoleDiv.style.display = 'block'; 
+        consoleContent.innerHTML = '<div class="log-entry">Starting process...</div>';
+        
+        const formData = new FormData(form);
+
+        fetch('/start-closing', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.task_id) {
+                pollStatus(data.task_id);
+            } else {
+                spinner.style.display = 'none';
+                alert('Error: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => { console.error(error); spinner.style.display = 'none'; });
+    });
+
+    // --- POLLING & EDIT FUNCTIONS (Same as before) ---
+    function pollStatus(taskId) {
+        let lastLogCount = 0;
+        let displayedDeals = new Set();
+        let processedResults = new Set();
+
+        const intervalId = setInterval(() => {
+            fetch(`/task-status/${taskId}`)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.task_id) {
-                        pollStatus(data.task_id);
-                    } else {
-                        spinner.style.display = 'none';
-                        alert('Error: ' + (data.message || 'Unknown error'));
+                    if (data.current_step) loadingText.innerText = data.current_step;
+
+                    if (data.finished_deals) {
+                        const listContainer = document.getElementById('completed-list');
+                        data.finished_deals.forEach(dealName => {
+                            if (!displayedDeals.has(dealName)) {
+                                const li = document.createElement('li');
+                                li.className = 'completed-item';
+                                li.innerHTML = `✅ SOW Sent to <b>${dealName}</b>`;
+                                listContainer.appendChild(li);
+                                displayedDeals.add(dealName);
+                            }
+                        });
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    spinner.style.display = 'none';
-                    alert("Network Error. Check console.");
-                });
-            });
-        }
 
-        function pollStatus(taskId) {
-            let lastLogCount = 0;
-            let displayedDeals = new Set();
-            let processedResults = new Set();
-
-            const intervalId = setInterval(() => {
-                fetch(`/task-status/${taskId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        
-                        // --- DEBUG LOG ---
-                        // Open Browser Console (F12) to see this
-                        console.log("Poll Data:", data); 
-                        if (data.results) {
-                            console.log("Current Results:", data.results);
-                        }
-                        // -----------------
-
-                        if (data.current_step) loadingText.innerText = data.current_step;
-
-                        // Checklist Update
-                        if (data.finished_deals && data.finished_deals.length > 0) {
-                            const listContainer = document.getElementById('completed-list');
-                            data.finished_deals.forEach(dealName => {
-                                if (!displayedDeals.has(dealName)) {
-                                    const li = document.createElement('li');
-                                    li.className = 'completed-item';
-                                    li.innerHTML = `✅ SOW Sent to <b>${dealName}</b>`;
-                                    listContainer.appendChild(li);
-                                    displayedDeals.add(dealName);
-                                }
-                            });
-                        }
-
-                        // Button Reveal Logic (No changes needed, just finds the class in the row)
-                        if (data.results) {
-                            for (const [oppId, envelopeId] of Object.entries(data.results)) {
-                                if (!processedResults.has(oppId)) {
-                                    const row = document.getElementById('row-' + oppId);
-                                    if (row) {
-                                        const btn = row.querySelector('.view-sow-btn');
-                                        if (btn) {
-                                            btn.href = `https://apps-d.docusign.com/send/documents/details/${envelopeId}`;
-                                            btn.style.display = 'inline-block';
-                                        }
+                    if (data.results) {
+                        for (const [oppId, envelopeId] of Object.entries(data.results)) {
+                            if (!processedResults.has(oppId)) {
+                                const row = document.getElementById('row-' + oppId);
+                                if (row) {
+                                    const btn = row.querySelector('.view-sow-btn');
+                                    if (btn) {
+                                        btn.href = `https://apps-d.docusign.com/send/documents/details/${envelopeId}`;
+                                        btn.style.display = 'inline-block';
                                     }
-                                    processedResults.add(oppId);
                                 }
+                                processedResults.add(oppId);
                             }
                         }
+                    }
 
-                        // Log Streaming
-                        if (data.logs && data.logs.length > lastLogCount) {
-                            const newLogs = data.logs.slice(lastLogCount);
-                            newLogs.forEach(logMsg => {
-                                const div = document.createElement('div');
-                                div.className = 'log-entry';
-                                div.innerText = logMsg;
-                                consoleContent.appendChild(div);
-                            });
-                            consoleDiv.scrollTop = consoleDiv.scrollHeight;
-                            lastLogCount = data.logs.length;
-                        }
-
-                        // Completion Check
-                        if (data.status === 'completed') {
-                            clearInterval(intervalId);
-                            setTimeout(() => {
-                                spinner.style.display = 'none';
-                                toast.className = 'show';
-                                setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
-                            }, 2000);
-                            
+                    if (data.logs && data.logs.length > lastLogCount) {
+                        const newLogs = data.logs.slice(lastLogCount);
+                        newLogs.forEach(logMsg => {
                             const div = document.createElement('div');
                             div.className = 'log-entry';
-                            div.style.color = '#4CAF50';
-                            div.style.fontWeight = 'bold';
-                            div.innerText = "✅ ALL TASKS COMPLETED SUCCESSFULLY.";
+                            div.innerText = logMsg;
                             consoleContent.appendChild(div);
-                            consoleDiv.scrollTop = consoleDiv.scrollHeight;
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Polling Error:', error);
-                    });
-            }, 1500); 
-        }
+                        });
+                        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                        lastLogCount = data.logs.length;
+                    }
 
-        function editEmail(editButton) {
-            const row = editButton.closest('tr');
-            row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
-            row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'block');
-        }
+                    if (data.status === 'completed') {
+                        clearInterval(intervalId);
+                        setTimeout(() => {
+                            spinner.style.display = 'none';
+                            toast.className = 'show';
+                            setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 5000);
+                        }, 2000);
+                        
+                        const div = document.createElement('div');
+                        div.className = 'log-entry';
+                        div.style.color = '#4CAF50';
+                        div.style.fontWeight = 'bold';
+                        div.innerText = "✅ ALL TASKS COMPLETED.";
+                        consoleContent.appendChild(div);
+                        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                        
+                        // Notify via Chat too
+                        addMessage("✅ All documents have been sent successfully!", 'agent');
+                    }
+                })
+                .catch(error => { console.error(error); });
+        }, 1500); 
+    }
 
-        function saveEmail(saveButton) {
-            const row = saveButton.closest('tr');
-            const contactId = row.dataset.contactId;
-            const emailInput = row.querySelector('.email-input');
-            const newEmail = emailInput.value;
+    function editEmail(editButton) {
+        const row = editButton.closest('tr');
+        row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
+        row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'block');
+    }
 
-            fetch('/update-contact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contact_id: contactId, new_email: newEmail })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    row.querySelector('.email-text').textContent = newEmail;
-                    row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
-                    row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
-                } else {
-                    alert('Error saving email: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred. Please check the console.');
-            });
-        }
-    </script>
+    function saveEmail(saveButton) {
+        const row = saveButton.closest('tr');
+        const contactId = row.dataset.contactId;
+        const emailInput = row.querySelector('.email-input');
+        const newEmail = emailInput.value;
+
+        fetch('/update-contact', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contact_id: contactId, new_email: newEmail })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                row.querySelector('.email-text').textContent = newEmail;
+                row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'block');
+                row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    }
+</script>
 </body>
 </html>
