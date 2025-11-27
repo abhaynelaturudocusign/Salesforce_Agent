@@ -223,6 +223,23 @@ def build_docgen_json_raw(data_dict):
 def create_docgen_sow_envelope(tool_input: str) -> str:
     print(f"--- Calling Tool: create_docgen_sow_envelope (Raw API Flow + Custom Fields) ---")
     
+    # --- 1. DEBUG & SANITIZE INPUT ---
+    print(f"🔥 DEBUG RAW INPUT: '{tool_input}'")
+    
+    # Clean up Markdown if the Agent added it
+    clean_input = tool_input.strip()
+    if clean_input.startswith("```json"):
+        clean_input = clean_input[7:]
+    if clean_input.startswith("```"):
+        clean_input = clean_input[3:]
+    if clean_input.endswith("```"):
+        clean_input = clean_input[:-3]
+    
+    clean_input = clean_input.strip()
+    
+    if not clean_input:
+        return "Error: Agent provided empty input. JSON required."
+
     # 1. Auth using SDK for convenience in Step 1
     # We also get the raw token for Steps 2-4
     access_token = get_docusign_token()
@@ -435,7 +452,11 @@ def create_docgen_sow_envelope(tool_input: str) -> str:
             "client_email": client_email,
             "envelope_id": envelope_id # <--- ADDED THIS
         }
-        log_deal_to_history(log_data)
+        try:
+            # Ensure log_deal_to_history is available or import it
+            from tools import log_deal_to_history
+            log_deal_to_history(log_data)
+        except: pass
         # ---------------------------
 
         return f"SOW Sent! Envelope ID: {envelope_id}"
