@@ -105,12 +105,13 @@ def get_local_history(tool_input: str = "") -> str:
 
 def search_history_for_chat(query: str) -> str:
     """
-    Searches the local SOW history for a specific project or client.
-    Input: The search term (e.g., 'United Oil' or 'Barbara').
+    Searches the local SOW history. Performs a 'Universal Search' across ALL fields 
+    (Name, Email, ID, Amount, etc.) at once.
     """
     print(f"--- Calling Tool: search_history_for_chat for: '{query}' ---")
     
     if not os.path.exists(HISTORY_FILE):
+        print("❌ MEMORY ERROR: sow_history.json not found.")
         return "No history file found. No SOWs have been sent yet."
     
     try:
@@ -118,24 +119,30 @@ def search_history_for_chat(query: str) -> str:
             history = json.load(f)
             
         results = []
-        query_lower = query.lower()
+        query_terms = query.lower().split() # Split "United Oil" into ["united", "oil"]
         
         for record in history:
-            # Search across relevant fields
-            name_match = query_lower in record.get('Name', '').lower()
-            contact_match = query_lower in record.get('PrimaryContactName', '').lower()
-            id_match = query_lower in record.get('Id', '').lower()
+            # 1. Create a "Search Blob"
+            # Combine ALL values in the record into one big lowercase string
+            # e.g. "006dm... united oil installations avi green 250000.0 ..."
+            searchable_blob = " ".join([str(v).lower() for v in record.values()])
             
-            if name_match or contact_match or id_match:
+            # 2. Universal Match Logic
+            # Check if ALL words in the query exist ANYWHERE in the blob
+            # This handles "United Oil" matching "United Oil Installations"
+            # and "Avi Green" matching "Avi Green"
+            if all(term in searchable_blob for term in query_terms):
                 results.append(record)
         
         if not results:
+            print(f"⚠️ No matches found for '{query}'")
             return f"No records found matching '{query}' in the history."
             
-        # Return formatted JSON so the Agent can read it easily
+        print(f"✅ Found {len(results)} matches.")
         return json.dumps(results, indent=2)
         
     except Exception as e:
+        print(f"❌ Error searching history: {e}")
         return f"Error searching history: {e}"
 
 # --- ADD THIS NEW FUNCTION ---
