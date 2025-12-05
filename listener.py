@@ -14,6 +14,7 @@ from main import start_deal_process, finalize_deal,handle_chat_interaction
 # Import the new tool from tools.py
 from tools import get_open_opportunities
 from main import classify_intent
+from main import agent_executor
 
 from langchain.callbacks.base import BaseCallbackHandler
 
@@ -153,6 +154,40 @@ def index():
 
     print("--- [UI] Rendering template... ---")
     return render_template('index.html', opportunities=opportunities,sf_base_url=sf_base_url)
+
+@app.route('/api/a2a-handshake', methods=['POST'])
+def agent_to_agent_delegation():
+    """
+    A2A Interface: Accepts a high-level goal from Salesforce Agentforce.
+    Expected JSON: { "goal": "Check warranty for agreement 123" }
+    """
+    data = request.get_json()
+    sender_agent = data.get('sender', 'Salesforce Agentforce')
+    goal = data.get('goal')
+    
+    print(f"🤖 A2A Request from {sender_agent}: {goal}")
+    
+    if not goal:
+        return jsonify({"status": "error", "response": "No goal provided."}), 400
+
+    try:
+        # We pass the goal directly to the Worker Agent's Brain
+        # The Agent will analyze the text, see it needs 'Check Warranty Status',
+        # call the tool, and generate a natural language response.
+        agent_response = agent_executor.invoke({"input": goal})
+        final_answer = agent_response['output']
+        
+        print(f"✅ Agent Reply: {final_answer}")
+        
+        return jsonify({
+            "status": "success",
+            "response": final_answer
+        })
+        
+    except Exception as e:
+        print(f"❌ A2A Error: {e}")
+        return jsonify({"status": "error", "response": str(e)}), 500
+
 
 @app.route('/start-closing', methods=['POST'])
 def start_closing():

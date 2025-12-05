@@ -36,6 +36,11 @@ tools = [
         name="Create DocGen SOW", 
         func=create_docgen_sow_envelope, 
         description="Generates an SOW using a WORD TEMPLATE (DocGen). Use this if asked for 'DocGen' or 'Word'."
+    ),
+    Tool(
+        name="Check Warranty Status",
+        func=check_warranty_status,
+        description="Checks if a contract is still under warranty using the Agreement ID. Returns Active/Expired status."
     )
 ] # Note: Abbreviated descriptions for brevity. Use your full descriptions.
 

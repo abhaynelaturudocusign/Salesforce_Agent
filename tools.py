@@ -16,6 +16,7 @@ from docusign_esign import (
     CompositeTemplate, ServerTemplate, InlineTemplate, Envelope,
     DocGenFormField, DocGenFormFields
 )
+from dateutil import parser
 # ... other imports ...
 
 # Load environment variables from .env file
@@ -198,6 +199,60 @@ def get_docusign_token():
     except Exception as e:
         print(f"❌ DocuSign Raw Token Error: {e}")
         return None
+
+def check_warranty_status(agreement_id: str) -> str:
+    """
+    Queries DocuSign Navigator for the warranty expiration year of a specific agreement.
+    Input: The DocuSign Agreement ID.
+    Returns: A status message indicating if the warranty is Active or Expired.
+    """
+    print(f"--- Calling Tool: check_warranty_status for Agreement {agreement_id} ---")
+    
+    # 1. Auth
+    access_token = get_docusign_token()
+    if not access_token: return "Error: DocuSign Auth Failed"
+    
+    account_id = os.getenv("DOCUSIGN_API_ACCOUNT_ID")
+    
+    # 2. Call DocuSign Navigator API (Corrected Endpoint)
+    # Base URL: https://api-d.docusign.com/v1
+    url = f"https://api-d.docusign.com/v1/accounts/{account_id}/agreements/{agreement_id}"
+    
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 404:
+            return f"Agreement {agreement_id} not found in Navigator."
+        if response.status_code != 200:
+            return f"DocuSign API Error: {response.text}"
+            
+        data = response.json()
+        
+        # 3. Extract Warranty Year from 'custom_provisions'
+        # Based on your JSON: "custom_provisions": { "c_WarrantyYear": 2024 }
+        custom_provisions = data.get('custom_provisions', {})
+        warranty_year = custom_provisions.get('c_WarrantyYear')
+        
+        if not warranty_year:
+             return f"Agreement found, but no 'c_WarrantyYear' field was extracted."
+
+        # 4. Calculate Status
+        # Since we only have a year, we compare it to the current year.
+        current_year = datetime.datetime.now().year
+        
+        # Assume warranty is valid THROUGH the warranty year
+        if int(warranty_year) >= current_year:
+            return f"✅ Warranty is ACTIVE. Coverage Year: {warranty_year}."
+        else:
+            return f"❌ Warranty EXPIRED. Coverage Year: {warranty_year}."
+
+    except Exception as e:
+        return f"Error checking warranty: {e}"
 
 def get_opportunity_line_items(opportunity_id: str) -> str:
     """Fetches the product line items for a Salesforce Opportunity."""
