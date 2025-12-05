@@ -193,7 +193,7 @@ def get_docusign_token():
             oauth_host_name="account-d.docusign.com",
             private_key_bytes=open("docusign_private.key").read(),
             expires_in=3600,
-            scopes=["signature", "impersonation"]
+            scopes=["signature", "impersonation","extended", "cors", "adm_store_unified_repo_read", "adm_store_unified_repo_write", "document_uploader_read", "document_uploader_write", "aow_manage", "public_dms_document_read", "public_dms_document_write"]
         )
         return token_response.access_token
     except Exception as e:
